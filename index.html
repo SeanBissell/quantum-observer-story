@@ -1192,20 +1192,21 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                 fullText += text;
                                 displayText += text;
 
-                                // Show first text immediately
-                                if (!hasShownText && displayText.trim() && isAtEnd) {
+                                // Show first text immediately (even just first character)
+                                if (!hasShownText && displayText.trim().length > 0 && isAtEnd) {
                                     hasShownText = true;
                                     elements.pageContent.innerHTML = '<div class="page-text streaming"></div>';
                                 }
 
-                                // Update live streaming text continuously
+                                // Update live streaming text continuously - update on EVERY chunk
                                 if (hasShownText && isAtEnd) {
                                     const streamingEl = elements.pageContent.querySelector('.streaming');
                                     if (streamingEl) {
+                                        // Use textContent for safety and performance
                                         streamingEl.textContent = displayText;
 
-                                        // Scroll to keep cursor visible if text overflows
-                                        elements.pageContent.scrollTop = elements.pageContent.scrollHeight;
+                                        // Keep the streaming cursor visible by scrolling to bottom
+                                        streamingEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
                                     }
                                 }
                             }
