@@ -377,7 +377,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
             font-family: 'Georgia', serif;
-            margin-bottom: 40px;
+            margin-bottom: 80px;
         }
 
         #start-btn:hover {
@@ -1121,6 +1121,12 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 const startingPageCount = state.pages.length;
                 const isAtEnd = state.currentPageIndex >= state.pages.length - 1;
 
+                // If continuing from an existing page with content, create a new page first
+                // This prevents new content from disturbing existing page content
+                if (startingPageCount > 0 && isAtEnd) {
+                    state.currentPageIndex = startingPageCount; // Move to the new (not yet created) page index
+                }
+
                 // Show "thinking" message
                 if (isAtEnd) {
                     elements.pageContent.innerHTML = '<div class="thinking">Creating quantum universe...</div>';
@@ -1221,8 +1227,9 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                             .join('');
 
                                         // Update page count in real-time during streaming
-                                        const buildingPageCount = Math.max(state.pages.length, 1);
-                                        elements.pageInfo.textContent = `Page 1 of ${buildingPageCount}`;
+                                        const buildingPageCount = Math.max(state.pages.length, startingPageCount + 1);
+                                        const currentDisplayPage = startingPageCount + 1;
+                                        elements.pageInfo.textContent = `Page ${currentDisplayPage} of ${buildingPageCount}`;
 
                                         // Only update display while on the active streaming page, stop once it locks
                                         if (displayPageParagraphs.length === 0) {
