@@ -1182,6 +1182,13 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                                     content: currentPageParagraphs.join('\n\n'),
                                                     type: 'narrative'
                                                 });
+
+                                                // Move user to the newly created page
+                                                if (isAtEnd) {
+                                                    state.currentPageIndex = state.pages.length - 1;
+                                                    updateUI();
+                                                }
+
                                                 currentPageParagraphs = [completeParagraph];
                                             } else {
                                                 // Still fits on current page
