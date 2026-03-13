@@ -1124,6 +1124,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
 
             let hasShownText = false;
             let currentPageParagraphs = []; // Track paragraphs on current streaming page
+            let displayPageParagraphs = []; // The first page we're showing to the user
 
             // Create temp div for measuring height
             const tempDiv = document.createElement('div');
@@ -1177,16 +1178,15 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                             tempDiv.innerHTML = testContent;
 
                                             if (tempDiv.offsetHeight > maxHeight && currentPageParagraphs.length > 0) {
-                                                // Page is full - save current page and start new one
+                                                // Page is full - save it and start new page
                                                 state.pages.push({
                                                     content: currentPageParagraphs.join('\n\n'),
                                                     type: 'narrative'
                                                 });
 
-                                                // Move user to the newly created page
-                                                if (isAtEnd) {
-                                                    state.currentPageIndex = state.pages.length - 1;
-                                                    updateUI();
+                                                // Lock the display to the first page content
+                                                if (displayPageParagraphs.length === 0) {
+                                                    displayPageParagraphs = [...currentPageParagraphs];
                                                 }
 
                                                 currentPageParagraphs = [completeParagraph];
@@ -1201,18 +1201,21 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                     paragraphBuffer = parts[parts.length - 1];
                                 }
 
-                                // Display current page content with streaming cursor
+                                // Display: if we've locked to first page, show that, otherwise show current content
                                 if (hasShownText && isAtEnd) {
-                                    // Build display with complete paragraphs + streaming cursor
-                                    const displayHTML = currentPageParagraphs
+                                    const displayParagraphs = displayPageParagraphs.length > 0
+                                        ? displayPageParagraphs
+                                        : currentPageParagraphs;
+
+                                    const displayHTML = displayParagraphs
                                         .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
                                         .join('') +
-                                        (paragraphBuffer.trim() ?
+                                        (displayPageParagraphs.length === 0 && paragraphBuffer.trim() ?
                                             `<div class="page-text streaming">${escapeHtml(paragraphBuffer)}</div>` :
                                             '');
 
                                     elements.pageContent.innerHTML = displayHTML;
-                                    elements.pageContent.scrollTop = 0; // Keep at top of page
+                                    elements.pageContent.scrollTop = 0;
                                 }
                             }
                         } catch (e) {
