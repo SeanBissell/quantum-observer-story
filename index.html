@@ -1217,7 +1217,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                         const displayHTML = displayParagraphs
                                             .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
                                             .join('') +
-                                            (paragraphBuffer.trim() ?
+                                            (displayPageParagraphs.length === 0 && paragraphBuffer.trim() ?
                                                 `<div class="page-text streaming">${escapeHtml(paragraphBuffer)}</div>` :
                                                 '');
 
