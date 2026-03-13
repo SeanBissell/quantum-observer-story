@@ -1240,7 +1240,11 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 content: cleanedText
             });
 
-            // Final pagination with cleaned text
+            // Final pagination with cleaned text - clear streaming pages first
+            if (state.pages.length > startingPageCount) {
+                state.pages.splice(startingPageCount);
+            }
+
             state.pendingNarrative = cleanedText;
             processPendingNarrative();
 
