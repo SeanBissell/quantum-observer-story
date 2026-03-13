@@ -149,6 +149,17 @@
             padding-right: 20px;
         }
 
+        /* Streaming text cursor effect */
+        .page-text.streaming::after {
+            content: '▌';
+            animation: blink 1s step-end infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
         /* Mobile: Adjust font size and padding */
         @media (max-width: 768px) {
             .page-text {
@@ -1078,7 +1089,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
         // ===== API COMMUNICATION =====
         async function sendMessage(userMessage, isInitial = false, isAutoAdvance = false) {
             state.isProcessing = true;
-            elements.loadingIndicator.classList.add('visible');
+            // Don't show loading indicator - we'll stream instead
             updateUI();
 
             try {
@@ -1116,7 +1127,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 addPage('An error occurred. Please try again.', 'narrative');
             } finally {
                 state.isProcessing = false;
-                elements.loadingIndicator.classList.remove('visible');
+                // Don't need to hide loading indicator anymore
                 updateUI();
             }
         }
@@ -1148,17 +1159,21 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             const decoder = new TextDecoder();
             let buffer = '';
             let fullText = '';
+            let displayBuffer = ''; // For live streaming display
 
-            // Show a loading indicator without changing pages
-            const originalPageIndex = state.currentPageIndex;
-            const originalContent = elements.pageContent.innerHTML;
+            // Remember starting point
+            const startingPageCount = state.pages.length;
 
-            // Only show loading if we're currently viewing the last page or beyond
-            const shouldShowLoading = state.currentPageIndex >= state.pages.length - 1;
+            // If we're at the end, show first text immediately
+            const isAtEnd = state.currentPageIndex >= state.pages.length - 1;
 
-            if (shouldShowLoading) {
-                elements.pageContent.innerHTML = '<div class="thinking">Generating story...</div>';
+            // Create initial streaming page
+            if (isAtEnd) {
+                state.currentPageIndex = state.pages.length;
+                elements.pageContent.innerHTML = '<div class="page-text streaming"></div>';
             }
+
+            const streamingElement = isAtEnd ? elements.pageContent.querySelector('.streaming') : null;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -1178,6 +1193,12 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                             if (parsed.type === 'content_block_delta') {
                                 const text = parsed.delta?.text || '';
                                 fullText += text;
+                                displayBuffer += text;
+
+                                // Update streaming display in real-time
+                                if (streamingElement && isAtEnd) {
+                                    streamingElement.textContent = displayBuffer;
+                                }
                             }
                         } catch (e) {
                             // Skip invalid JSON
@@ -1205,7 +1226,6 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
 
             // Add as pending narrative and process into pages
             state.pendingNarrative = cleanedText;
-            const startingPageCount = state.pages.length;
 
             // Process narrative into new pages (without changing current page)
             processPendingNarrative();
@@ -1213,12 +1233,9 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             // If this is the very first story content (story just started), go to page 1
             if (startingPageCount === 0 && state.pages.length > 0) {
                 state.currentPageIndex = 0;
-            } else if (shouldShowLoading && state.pages.length > startingPageCount) {
+            } else if (isAtEnd && state.pages.length > startingPageCount) {
                 // If we were showing loading, move to the first new page
                 state.currentPageIndex = startingPageCount;
-            } else {
-                // Otherwise keep the page we're on
-                state.currentPageIndex = originalPageIndex;
             }
 
             displayCurrentPage();
