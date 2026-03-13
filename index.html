@@ -397,6 +397,14 @@
             50% { opacity: 1; }
         }
 
+        .streaming-indicator {
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
         /* Loading Indicator */
         #loading-indicator {
             position: fixed;
@@ -1219,7 +1227,13 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                             .join('') +
                                             (displayPageParagraphs.length === 0 && paragraphBuffer.trim() ?
                                                 `<div class="page-text streaming">${escapeHtml(paragraphBuffer)}</div>` :
-                                                '');
+                                                (displayPageParagraphs.length > 0 ?
+                                                    '<div class="streaming-indicator">More content generating...</div>' :
+                                                    ''));
+
+                                        // Update page count in real-time during streaming
+                                        const buildingPageCount = Math.max(state.pages.length, 1);
+                                        elements.pageInfo.textContent = `Page 1 of ${buildingPageCount}`;
 
                                         elements.pageContent.innerHTML = displayHTML;
                                         elements.pageContent.scrollTop = 0;
