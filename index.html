@@ -1259,20 +1259,53 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             // Build content to paginate
             const contentToPaginate = paragraphs.join('\n\n') + (currentParagraph ? '\n\n' + currentParagraph : '');
 
-            // Temporarily store in pending
-            const oldPending = state.pendingNarrative;
-            state.pendingNarrative = contentToPaginate;
-
             // Count pages before
             const pagesBefore = state.pages.length;
 
-            // Paginate available content
-            processPendingNarrative();
+            // Create pages from streamed content without clearing existing pages
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.visibility = 'hidden';
+            tempDiv.style.width = elements.pageContent.offsetWidth + 'px';
+            tempDiv.style.font = window.getComputedStyle(elements.pageContent).font;
+            document.body.appendChild(tempDiv);
 
-            // Restore pending (will be properly set at end)
-            state.pendingNarrative = oldPending;
+            const maxHeight = elements.pageContent.offsetHeight - 20;
+            const allParagraphs = contentToPaginate.split('\n\n').filter(p => p.trim());
+            let currentPage = [];
 
-            // If new pages were created and user is still at end, show first new page
+            // Remove existing streamed pages (we'll recreate them)
+            if (state.pages.length > startingPageCount) {
+                state.pages.splice(startingPageCount);
+            }
+
+            for (const paragraph of allParagraphs) {
+                const testContent = [...currentPage, paragraph]
+                    .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
+                    .join('');
+                tempDiv.innerHTML = testContent;
+
+                if (tempDiv.offsetHeight > maxHeight && currentPage.length > 0) {
+                    state.pages.push({
+                        content: currentPage.join('\n\n'),
+                        type: 'narrative'
+                    });
+                    currentPage = [paragraph];
+                } else {
+                    currentPage.push(paragraph);
+                }
+            }
+
+            if (currentPage.length > 0) {
+                state.pages.push({
+                    content: currentPage.join('\n\n'),
+                    type: 'narrative'
+                });
+            }
+
+            document.body.removeChild(tempDiv);
+
+            // If new pages were created and user hasn't moved, show first new page
             if (state.pages.length > pagesBefore && state.currentPageIndex < startingPageCount) {
                 state.currentPageIndex = startingPageCount;
                 displayCurrentPage();
