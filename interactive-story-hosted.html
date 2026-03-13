@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>An Interactive Story</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            line-height: 1.8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #app {
+            max-width: 900px;
+            width: 100%;
+            background: rgba(15, 15, 35, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #status-bar {
+            background: rgba(25, 25, 45, 0.8);
+            padding: 15px 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        #chapter-info {
+            color: #8ab4f8;
+            font-weight: 500;
+        }
+
+        #player-stats {
+            color: #a8c7fa;
+            font-size: 0.85em;
+        }
+
+        #story-container {
+            height: 500px;
+            overflow-y: auto;
+            padding: 30px;
+            scroll-behavior: smooth;
+        }
+
+        #story-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #story-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        #story-container::-webkit-scrollbar-thumb {
+            background: rgba(138, 180, 248, 0.3);
+            border-radius: 4px;
+        }
+
+        #story-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(138, 180, 248, 0.5);
+        }
+
+        .story-block {
+            margin-bottom: 25px;
+            opacity: 0;
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .narrator-text {
+            color: #e4e4e4;
+            text-align: justify;
+            margin-bottom: 15px;
+        }
+
+        .user-text {
+            color: #8ab4f8;
+            font-style: italic;
+            padding: 12px 18px;
+            background: rgba(138, 180, 248, 0.1);
+            border-left: 3px solid #8ab4f8;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .thinking {
+            color: #888;
+            font-style: italic;
+            text-align: center;
+            padding: 10px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        #input-container {
+            padding: 20px 25px;
+            background: rgba(25, 25, 45, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 12px 18px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #e4e4e4;
+            font-family: 'Georgia', serif;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        #user-input:focus {
+            outline: none;
+            border-color: #8ab4f8;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        #user-input::placeholder {
+            color: #888;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Georgia', serif;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(94, 114, 228, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #death-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        #death-screen.active {
+            display: flex;
+        }
+
+        .death-content {
+            text-align: center;
+            padding: 40px;
+            max-width: 600px;
+        }
+
+        .death-title {
+            font-size: 3em;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+        }
+
+        .death-reason {
+            font-size: 1.2em;
+            color: #e4e4e4;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        #revive-btn {
+            background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+            font-size: 1.1em;
+            padding: 15px 35px;
+        }
+
+        #welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        #welcome-screen.hidden {
+            display: none;
+        }
+
+        .welcome-content {
+            text-align: center;
+            padding: 40px;
+            max-width: 700px;
+            background: rgba(15, 15, 35, 0.95);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .welcome-title {
+            font-size: 2.5em;
+            color: #8ab4f8;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(138, 180, 248, 0.3);
+        }
+
+        .welcome-text {
+            font-size: 1.1em;
+            color: #e4e4e4;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+
+        .instructions {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(138, 180, 248, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #8ab4f8;
+            text-align: left;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+            color: #a8c7fa;
+        }
+
+        #start-btn {
+            font-size: 1.2em;
+            padding: 15px 40px;
+            margin-top: 20px;
+        }
+
+        .auto-advance-hint {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="welcome-screen">
+        <div class="welcome-content">
+            <h1 class="welcome-title">An Interactive Story</h1>
+            <p class="welcome-text">A journey created especially for you.</p>
+
+            <div class="instructions">
+                <strong style="color: #8ab4f8;">How to Experience This Story:</strong>
+                <ul>
+                    <li><strong>Ask questions</strong> of characters or about your surroundings</li>
+                    <li><strong>Declare actions</strong> you want to take</li>
+                    <li><strong>Make choices</strong> when presented with options</li>
+                    <li><strong>Or simply read</strong> – the story will continue if you prefer to just experience it</li>
+                    <li>If things go wrong, don't worry – you can always continue</li>
+                </ul>
+            </div>
+
+            <p class="welcome-text">Your choices and questions will shape the story, but there's no wrong way to proceed.</p>
+
+            <button id="start-btn">Begin Your Journey</button>
+        </div>
+    </div>
+
+    <div id="app">
+        <div id="status-bar">
+            <div id="chapter-info">Chapter 1: The Beginning</div>
+            <div id="player-stats"></div>
+        </div>
+
+        <div id="story-container">
+            <div id="story-text"></div>
+        </div>
+
+        <div id="input-container">
+            <div id="input-wrapper">
+                <input
+                    type="text"
+                    id="user-input"
+                    placeholder="Type your response or question..."
+                    autocomplete="off"
+                />
+                <button id="submit-btn">Send</button>
+            </div>
+            <div class="auto-advance-hint">Story will continue automatically if you prefer to just read</div>
+        </div>
+    </div>
+
+    <div id="death-screen">
+        <div class="death-content">
+            <div class="death-title">◆</div>
+            <div class="death-reason"></div>
+            <button id="revive-btn">Continue</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIGURATION =====
+        const CONFIG = {
+            API_ENDPOINT: 'https://seanbissell.com/api-proxy.php', // Change to your actual domain/path
+            MODEL: 'claude-3-5-sonnet',
+            AUTO_ADVANCE_DELAY: 8000, // 8 seconds of inactivity triggers auto-advance
+            MAX_HISTORY_MESSAGES: 20, // Keep last 20 messages in context
+        };
+
+        // ===== STORY DATA =====
+        const STORY_DATA = {
+            chapters: [
+                {
+                    number: 1,
+                    title: "The Beginning",
+                    description: "An ordinary day becomes extraordinary.",
+                    setting: "Your home, a comfortable Tuesday morning",
+                    objective: "Notice something impossible",
+                    exitCondition: "Player discovers the anomaly"
+                },
+                {
+                    number: 2,
+                    title: "The Unraveling",
+                    description: "Reality shows its cracks.",
+                    setting: "Between worlds",
+                    objective: "Understand what's happening",
+                    exitCondition: "Player grasps the nature of the situation"
+                },
+                {
+                    number: 3,
+                    title: "The Choice",
+                    description: "A decision must be made.",
+                    setting: "The threshold",
+                    objective: "Make the choice",
+                    exitCondition: "Player decides their path"
+                },
+                {
+                    number: 4,
+                    title: "Echoes",
+                    description: "The past and future collide.",
+                    setting: "A place outside time",
+                    objective: "Reconcile timelines",
+                    exitCondition: "Player resolves the paradox"
+                },
+                {
+                    number: 5,
+                    title: "Return",
+                    description: "Coming home, transformed.",
+                    setting: "Home again, but different",
+                    objective: "Complete the journey",
+                    exitCondition: "Story conclusion"
+                }
+            ],
+
+            systemPromptTemplate: `You are the narrator of an interactive science fiction story in the style of Kurt Vonnegut and Philip K. Dick - literary, philosophical, and deeply human.
+
+The reader is the protagonist: a 72-year-old person living a comfortable retirement with their spouse, with grown children. Their ordinary life is about to be disrupted by something impossible.
+
+STORY THEMES:
+- The nature of consciousness and reality
+- Memory and identity (what makes us who we are?)
+- Time as non-linear and subjective
+- Choices and their echoes across possibility
+- Finding meaning in the face of the incomprehensible
+
+CURRENT CHAPTER: {chapter_number} - "{chapter_title}"
+Setting: {chapter_setting}
+Objective: {chapter_objective}
+
+NARRATION RULES:
+1. Treat the reader as intelligent and thoughtful - never condescending
+2. When reader asks questions, answer naturally through narration or characters
+3. When reader is silent, continue the story organically - they may just be reading
+4. If you receive [CONTINUE], advance the story to the next beat naturally
+5. Keep responses 2-4 paragraphs unless answering specific questions
+6. Be descriptive and atmospheric, but not purple prose
+7. Include philosophical moments but don't make them heavy-handed
+8. If reader's choices lead to death/failure, narrate it and output [DEATH: brief reason]
+9. When chapter objective is achieved, output [CHAPTER_COMPLETE: {next_chapter}]
+10. The story should work whether reader is active or passive
+
+CURRENT STATE:
+Chapter: {chapter_number}/5
+Reader can ask questions, declare actions, or simply read along.
+
+Begin the story with atmosphere and intrigue. Draw the reader in gently but surely. Remember: this is a birthday gift - make it meaningful and memorable.`
+        };
+
+        // ===== STATE MANAGEMENT =====
+        const state = {
+            conversationHistory: [],
+            currentChapter: 1,
+            playerStats: {
+                health: 100,
+                discoveries: [],
+                choices: []
+            },
+            isProcessing: false,
+            autoAdvanceTimer: null,
+            storyStarted: false
+        };
+
+        // ===== DOM ELEMENTS =====
+        const elements = {
+            welcomeScreen: document.getElementById('welcome-screen'),
+            startBtn: document.getElementById('start-btn'),
+            storyText: document.getElementById('story-text'),
+            userInput: document.getElementById('user-input'),
+            submitBtn: document.getElementById('submit-btn'),
+            chapterInfo: document.getElementById('chapter-info'),
+            playerStats: document.getElementById('player-stats'),
+            deathScreen: document.getElementById('death-screen'),
+            deathReason: document.querySelector('.death-reason'),
+            reviveBtn: document.getElementById('revive-btn'),
+            storyContainer: document.getElementById('story-container')
+        };
+
+        // ===== INITIALIZATION =====
+        function init() {
+            loadState();
+            setupEventListeners();
+
+            // If story already started (from saved state), hide welcome and show story
+            if (state.storyStarted) {
+                elements.welcomeScreen.classList.add('hidden');
+                updateUI();
+            }
+        }
+
+        function setupEventListeners() {
+            elements.startBtn.addEventListener('click', startStory);
+            elements.submitBtn.addEventListener('click', handleSubmit);
+            elements.userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                }
+            });
+            elements.userInput.addEventListener('input', resetAutoAdvanceTimer);
+            elements.reviveBtn.addEventListener('click', handleRevival);
+        }
+
+        // ===== STORY CONTROL =====
+        async function startStory() {
+            elements.welcomeScreen.classList.add('hidden');
+            state.storyStarted = true;
+            saveState();
+
+            // Initial story prompt
+            await sendMessage(null, true); // null = start story, true = is initial
+        }
+
+        async function handleSubmit() {
+            const userMessage = elements.userInput.value.trim();
+            if (!userMessage || state.isProcessing) return;
+
+            displayUserMessage(userMessage);
+            elements.userInput.value = '';
+
+            await sendMessage(userMessage);
+        }
+
+        function resetAutoAdvanceTimer() {
+            clearTimeout(state.autoAdvanceTimer);
+
+            if (!state.isProcessing && state.storyStarted) {
+                state.autoAdvanceTimer = setTimeout(() => {
+                    if (!state.isProcessing) {
+                        handleAutoAdvance();
+                    }
+                }, CONFIG.AUTO_ADVANCE_DELAY);
+            }
+        }
+
+        async function handleAutoAdvance() {
+            await sendMessage('[CONTINUE - reader is listening, advance story naturally]', false, true);
+        }
+
+        // ===== API COMMUNICATION =====
+        async function sendMessage(userMessage, isInitial = false, isAutoAdvance = false) {
+            state.isProcessing = true;
+            updateUIState();
+            clearTimeout(state.autoAdvanceTimer);
+
+            try {
+                // Add user message to history (unless auto-advance or initial)
+                if (userMessage && !isAutoAdvance && !isInitial) {
+                    state.conversationHistory.push({
+                        role: 'user',
+                        content: userMessage
+                    });
+                } else if (isAutoAdvance) {
+                    // Auto-advance message goes to API but not displayed
+                    state.conversationHistory.push({
+                        role: 'user',
+                        content: userMessage
+                    });
+                }
+
+                // Build messages for API
+                const messages = isInitial
+                    ? [{ role: 'user', content: 'Begin the story.' }]
+                    : [...state.conversationHistory];
+
+                // Trim history if too long
+                if (messages.length > CONFIG.MAX_HISTORY_MESSAGES) {
+                    const kept = messages.slice(-CONFIG.MAX_HISTORY_MESSAGES);
+                    messages.length = 0;
+                    messages.push(...kept);
+                }
+
+                // Make API call
+                const response = await callMiniMaxAPI(messages);
+
+                // Process response
+                await processResponse(response);
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                displayError('Something went wrong. Please try again.');
+            } finally {
+                state.isProcessing = false;
+                updateUIState();
+                saveState();
+                resetAutoAdvanceTimer();
+            }
+        }
+
+        async function callMiniMaxAPI(messages) {
+            const systemPrompt = buildSystemPrompt();
+
+            const response = await fetch(CONFIG.API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: CONFIG.MODEL,
+                    max_tokens: 1024,
+                    system: systemPrompt,
+                    messages: messages,
+                    stream: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+            }
+
+            return response;
+        }
+
+        async function processResponse(response) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullResponse = '';
+
+            // Show thinking indicator
+            const thinkingDiv = displayThinking();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        if (data === '[DONE]') continue;
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                                const text = parsed.delta.text;
+                                fullResponse += text;
+
+                                // Remove thinking indicator on first text
+                                if (thinkingDiv && thinkingDiv.parentNode) {
+                                    thinkingDiv.remove();
+                                }
+
+                                // Display text as it streams
+                                displayStreamingText(text);
+                            }
+                        } catch (e) {
+                            // Ignore JSON parse errors for incomplete chunks
+                        }
+                    }
+                }
+            }
+
+            // Add assistant response to history
+            state.conversationHistory.push({
+                role: 'assistant',
+                content: fullResponse
+            });
+
+            // Check for special markers
+            checkForDeath(fullResponse);
+            checkForChapterComplete(fullResponse);
+        }
+
+        // ===== RESPONSE PROCESSING =====
+        function checkForDeath(text) {
+            const deathMatch = text.match(/\[DEATH:\s*([^\]]+)\]/);
+            if (deathMatch) {
+                const reason = deathMatch[1].trim();
+                showDeathScreen(reason);
+            }
+        }
+
+        function checkForChapterComplete(text) {
+            const chapterMatch = text.match(/\[CHAPTER_COMPLETE:\s*(\d+)\]/);
+            if (chapterMatch) {
+                const nextChapter = parseInt(chapterMatch[1]);
+                if (nextChapter <= STORY_DATA.chapters.length) {
+                    state.currentChapter = nextChapter;
+                    updateChapterDisplay();
+                    saveState();
+                }
+            }
+        }
+
+        function showDeathScreen(reason) {
+            elements.deathReason.textContent = reason;
+            elements.deathScreen.classList.add('active');
+        }
+
+        async function handleRevival() {
+            elements.deathScreen.classList.remove('active');
+
+            // Add revival message
+            displayNarratorMessage('◆ Reality shifts... ◆');
+
+            await sendMessage('[REVIVAL] You find yourself restored, the moment rewinding. The story continues...');
+        }
+
+        // ===== DISPLAY FUNCTIONS =====
+        function displayUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'story-block user-text';
+            div.textContent = text;
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+        }
+
+        function displayNarratorMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'story-block narrator-text';
+            div.innerHTML = text.replace(/\n\n/g, '<br><br>');
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+        }
+
+        let currentStreamingDiv = null;
+
+        function displayStreamingText(text) {
+            if (!currentStreamingDiv) {
+                currentStreamingDiv = document.createElement('div');
+                currentStreamingDiv.className = 'story-block narrator-text';
+                elements.storyText.appendChild(currentStreamingDiv);
+            }
+
+            currentStreamingDiv.innerHTML += text.replace(/\n/g, '<br>');
+            scrollToBottom();
+        }
+
+        function displayThinking() {
+            const div = document.createElement('div');
+            div.className = 'thinking';
+            div.textContent = '...';
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        function displayError(message) {
+            const div = document.createElement('div');
+            div.className = 'story-block';
+            div.style.color = '#ff6b6b';
+            div.textContent = message;
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            elements.storyContainer.scrollTop = elements.storyContainer.scrollHeight;
+        }
+
+        // ===== UI STATE =====
+        function updateUIState() {
+            elements.submitBtn.disabled = state.isProcessing;
+            elements.userInput.disabled = state.isProcessing;
+
+            if (state.isProcessing) {
+                currentStreamingDiv = null; // Reset for new message
+            }
+        }
+
+        function updateChapterDisplay() {
+            const chapter = STORY_DATA.chapters[state.currentChapter - 1];
+            if (chapter) {
+                elements.chapterInfo.textContent = `Chapter ${chapter.number}: ${chapter.title}`;
+            }
+        }
+
+        function updateUI() {
+            updateChapterDisplay();
+            // Could add player stats display here if desired
+        }
+
+        // ===== SYSTEM PROMPT BUILDER =====
+        function buildSystemPrompt() {
+            const chapter = STORY_DATA.chapters[state.currentChapter - 1];
+
+            return STORY_DATA.systemPromptTemplate
+                .replace('{chapter_number}', chapter.number)
+                .replace('{chapter_title}', chapter.title)
+                .replace('{chapter_setting}', chapter.setting)
+                .replace('{chapter_objective}', chapter.objective)
+                .replace('{next_chapter}', chapter.number + 1)
+                .replace('{chapter_number}', chapter.number); // Second occurrence
+        }
+
+        // ===== PERSISTENCE =====
+        function saveState() {
+            const saveData = {
+                conversationHistory: state.conversationHistory,
+                currentChapter: state.currentChapter,
+                playerStats: state.playerStats,
+                storyStarted: state.storyStarted
+            };
+            localStorage.setItem('interactiveStory', JSON.stringify(saveData));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('interactiveStory');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    state.conversationHistory = data.conversationHistory || [];
+                    state.currentChapter = data.currentChapter || 1;
+                    state.playerStats = data.playerStats || { health: 100, discoveries: [], choices: [] };
+                    state.storyStarted = data.storyStarted || false;
+
+                    // Restore display
+                    if (state.storyStarted) {
+                        restoreStoryDisplay();
+                    }
+                } catch (e) {
+                    console.error('Error loading saved state:', e);
+                }
+            }
+        }
+
+        function restoreStoryDisplay() {
+            // Display conversation history
+            state.conversationHistory.forEach(msg => {
+                if (msg.role === 'user' && !msg.content.includes('[CONTINUE')) {
+                    displayUserMessage(msg.content);
+                } else if (msg.role === 'assistant') {
+                    displayNarratorMessage(msg.content.replace(/\[DEATH:[^\]]+\]/g, '').replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, ''));
+                }
+            });
+        }
+
+        // Start the application
+        init();
+    </script>
+</body>
+</html>

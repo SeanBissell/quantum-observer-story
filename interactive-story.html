@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>An Interactive Story</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            line-height: 1.8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #app {
+            max-width: 900px;
+            width: 100%;
+            background: rgba(15, 15, 35, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #status-bar {
+            background: rgba(25, 25, 45, 0.8);
+            padding: 15px 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        #chapter-info {
+            color: #8ab4f8;
+            font-weight: 500;
+        }
+
+        #player-stats {
+            color: #a8c7fa;
+            font-size: 0.85em;
+        }
+
+        #story-container {
+            height: 500px;
+            overflow-y: auto;
+            padding: 30px;
+            scroll-behavior: smooth;
+        }
+
+        #story-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #story-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        #story-container::-webkit-scrollbar-thumb {
+            background: rgba(138, 180, 248, 0.3);
+            border-radius: 4px;
+        }
+
+        #story-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(138, 180, 248, 0.5);
+        }
+
+        .story-block {
+            margin-bottom: 25px;
+            opacity: 0;
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .narrator-text {
+            color: #e4e4e4;
+            text-align: justify;
+            margin-bottom: 15px;
+        }
+
+        .user-text {
+            color: #8ab4f8;
+            font-style: italic;
+            padding: 12px 18px;
+            background: rgba(138, 180, 248, 0.1);
+            border-left: 3px solid #8ab4f8;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .thinking {
+            color: #888;
+            font-style: italic;
+            text-align: center;
+            padding: 10px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        #input-container {
+            padding: 20px 25px;
+            background: rgba(25, 25, 45, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #continue-btn-wrapper {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        #continue-btn {
+            font-size: 1em;
+            padding: 10px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: none;
+        }
+
+        #continue-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        #continue-btn.visible {
+            display: inline-block;
+        }
+
+        #input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 12px 18px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #e4e4e4;
+            font-family: 'Georgia', serif;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        #user-input:focus {
+            outline: none;
+            border-color: #8ab4f8;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        #user-input::placeholder {
+            color: #888;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Georgia', serif;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(94, 114, 228, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #death-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        #death-screen.active {
+            display: flex;
+        }
+
+        .death-content {
+            text-align: center;
+            padding: 40px;
+            max-width: 600px;
+        }
+
+        .death-title {
+            font-size: 3em;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+        }
+
+        .death-reason {
+            font-size: 1.2em;
+            color: #e4e4e4;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        #revive-btn {
+            background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+            font-size: 1.1em;
+            padding: 15px 35px;
+        }
+
+        #welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        #welcome-screen.hidden {
+            display: none;
+        }
+
+        .welcome-content {
+            text-align: center;
+            padding: 40px;
+            max-width: 700px;
+            background: rgba(15, 15, 35, 0.95);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .welcome-title {
+            font-size: 2.5em;
+            color: #8ab4f8;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(138, 180, 248, 0.3);
+        }
+
+        .welcome-text {
+            font-size: 1.1em;
+            color: #e4e4e4;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+
+        .instructions {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(138, 180, 248, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #8ab4f8;
+            text-align: left;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+            color: #a8c7fa;
+        }
+
+        #start-btn {
+            font-size: 1.2em;
+            padding: 15px 40px;
+            margin-top: 20px;
+        }
+
+        .auto-advance-hint {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="welcome-screen">
+        <div class="welcome-content">
+            <h1 class="welcome-title">The Quantum Observer</h1>
+            <p class="welcome-text">An interactive story created especially for you.</p>
+
+            <div class="instructions">
+                <strong style="color: #8ab4f8;">How to Experience This Story:</strong>
+                <ul>
+                    <li><strong>Ask questions</strong> of characters or about your surroundings</li>
+                    <li><strong>Declare actions</strong> you want to take</li>
+                    <li><strong>Make choices</strong> when presented with options</li>
+                    <li><strong>Or simply read</strong> – the story will continue if you prefer to just experience it</li>
+                    <li>If things go wrong, don't worry – you can always continue</li>
+                </ul>
+            </div>
+
+            <p class="welcome-text">Your choices and questions will shape the story, but there's no wrong way to proceed.</p>
+
+            <button id="start-btn">Begin Your Journey</button>
+        </div>
+    </div>
+
+    <div id="app">
+        <div id="status-bar">
+            <div id="chapter-info">Chapter 1: The Glitch</div>
+            <div id="player-stats">
+                <button id="reset-btn" style="font-size: 0.8em; padding: 4px 10px; background: #444; margin-left: 10px;">Reset Story</button>
+            </div>
+        </div>
+
+        <div id="story-container">
+            <div id="story-text"></div>
+        </div>
+
+        <div id="input-container">
+            <div id="continue-btn-wrapper">
+                <button id="continue-btn">Continue Story</button>
+            </div>
+            <div id="input-wrapper">
+                <input
+                    type="text"
+                    id="user-input"
+                    placeholder="Type your response or question..."
+                    autocomplete="off"
+                />
+                <button id="submit-btn">Send</button>
+            </div>
+            <div class="auto-advance-hint">Story will continue automatically if you prefer to just read</div>
+        </div>
+    </div>
+
+    <div id="death-screen">
+        <div class="death-content">
+            <div class="death-title">◆</div>
+            <div class="death-reason"></div>
+            <button id="revive-btn">Continue</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIGURATION =====
+        const CONFIG = {
+            API_ENDPOINT: 'http://localhost:3001/api/chat', // Local proxy (keeps API key secure)
+            MODEL: 'claude-3-5-sonnet',
+            AUTO_ADVANCE_DELAY: 8000, // 8 seconds of inactivity triggers auto-advance
+            MAX_HISTORY_MESSAGES: 20, // Keep last 20 messages in context
+        };
+
+        // ===== STORY DATA =====
+        const STORY_DATA = {
+            chapters: [
+                {
+                    number: 1,
+                    title: "The Glitch",
+                    description: "Something is wrong with reality."
+                },
+                {
+                    number: 2,
+                    title: "The Convergence",
+                    description: "Reality is not singular."
+                },
+                {
+                    number: 3,
+                    title: "The Branches",
+                    description: "Every choice echoes across infinity."
+                },
+                {
+                    number: 4,
+                    title: "The Nexus",
+                    description: "All timelines converge at the moment of choice."
+                },
+                {
+                    number: 5,
+                    title: "The Return",
+                    description: "Inner peace creates outer peace."
+                }
+            ],
+
+            // Chapter-specific system prompts
+            getSystemPrompt: function(chapterNumber) {
+                const prompts = {
+                    1: `You are the narrator of "The Quantum Observer," an interactive science fiction story in the style of Kurt Vonnegut and Philip K. Dick—literary, philosophical, and deeply human.
+
+# THE PROTAGONIST
+
+The reader IS the protagonist: Steve, a 72-year-old man who lives in Newcastle, Washington with his wife Nancy. He has two grown sons, Sean (43) and Daniel (40). Steve is retired from tech sales, curious, level-headed but gets frustrated when things don't go his way, slightly sarcastic, and adventurous (he sails and bikes). He ran away to Hawaii as a teenager but came back. He's tech-savvy and has a one-eyed cat named Sparky (missing right eye). He drives a 2004 blue Toyota Highlander.
+
+Steve's personality:
+- Curious and questions things logically
+- Dry, sarcastic humor ("Another Tuesday. My favorite day to exist.")
+- Level-headed but control-oriented (gets upset when things don't make sense)
+- Pattern-breaker (does unexpected things in strange situations)
+- Tech sales background = needs reasons, logic, causation
+
+# CHAPTER 1 STORY ARC
+
+This is Chapter 1 of 5. The chapter establishes Steve's ordinary world, then introduces escalating impossible events that break down his sense of reality.
+
+PROGRESSION:
+1. Normal Tuesday morning - comfortable retirement life with Nancy
+2. GLITCH 1: The Book - "Gödel, Escher, Bach" that Steve donated in 1985 is back on his shelf with his college signature
+3. GLITCH 2: Sparky's Eyes - Their one-eyed cat briefly has two eyes, then back to one
+4. GLITCH 3: Patterson Conversation - Neighbor Jim remembers Steve racing in a regatta last Saturday; Steve was in Seattle with Nancy. But there are text messages and photos of both events.
+5. GLITCH 4: The Photos - Nancy's phone has photos from both Seattle (dinner) AND the regatta on the same day
+6. GLITCH 5: The Car - Steve's blue Highlander is now red. Nancy remembers it as always being red. Steve remembers blue.
+7. GLITCH 6: Split Memories - Steve remembers their 1985 move as both August AND September. Wedding flowers as both red AND white.
+8. THE NOTE: A note in the book, in Steve's handwriting, from "another Steve" referencing the 1985 Bellevue decision (standing in rain for 23 minutes) and inviting him to Gene Coulon Park at midnight
+9. Nancy is skeptical but worried; while Steve is gone, she sees Sparky with two eyes briefly
+10. MIDNIGHT MEETING: Steve meets "Other Steve" - himself from a timeline where he didn't take the Bellevue Microsoft job
+11. EXPLANATION: Other Steve explains quantum timeline convergence - all of Steve's choices have created branching timelines, and they're now overlapping
+12. Nancy experiences timeline shifts while Steve is gone; when he returns and tells her everything, she believes because she saw it too
+13. CHAPTER ENDS: Both commit to understanding what's happening together
+
+# NARRATION STYLE
+
+- Second person perspective: "You wake to morning light..." (Steve is "you")
+- Literary sci-fi tone: Grounded but atmospheric, philosophical but not preachy
+- Show don't tell: Describe what Steve experiences, not what it means
+- Dry humor matching Steve's personality
+- Build tension gradually through accumulating impossibilities
+- Keep responses 2-4 paragraphs unless reader asks specific questions
+- Use sensory details: rain sounds, coffee smell, familiar spaces feeling wrong
+
+# KEY THEMES (SUBTLE)
+
+- Reality as subjective/observer-dependent
+- Acceptance vs. resistance
+- Choice and consequence
+- What makes something "real"
+- Love and connection as constants
+
+# INTERACTION RULES
+
+1. If reader asks questions: Answer naturally through narration or character dialogue
+2. If reader declares actions: Integrate them into the story flow
+3. If reader is passive/silent: Continue the story naturally, advancing through the glitch sequence
+4. Keep Steve's character consistent: curious, sarcastic, logical, gets frustrated
+5. Nancy is practical, grounding, skeptical at first but eventually believes
+6. Sparky the cat is just a cat - doesn't care about quantum mechanics
+
+# AUTO-ADVANCE TRIGGER
+
+If you receive the message "[CONTINUE - reader is listening, advance story naturally]", this means the reader is passively experiencing the story. Continue to the next beat in the chapter progression naturally.
+
+# CHAPTER COMPLETION
+
+When Steve and Nancy have experienced the glitches, met Other Steve, and both committed to understanding this together (end of Chapter 1 arc), output:
+
+[CHAPTER_COMPLETE: 2]
+
+This signals the system to move to Chapter 2.
+
+# IMPORTANT NOTES
+
+- Steve is NOT dying or sick - don't imply this yet
+- The convergence is mysterious at this point - don't explain too much yet
+- Build dread and confusion, not horror
+- Nancy's belief is earned through her own experience, not just trusting Steve
+- Ground impossible events in concrete details (specific book title, exact text messages, etc.)
+- Maintain Vonnegut-style dark humor
+
+# STARTING POINT
+
+Begin with Steve waking up on a Tuesday morning in Newcastle. Establish his comfortable retirement life with Nancy before introducing the first glitch (the book). Let the reader observe and question before forcing them forward.
+
+Remember: This is a birthday gift. Make it meaningful, engaging, and ultimately hopeful.`,
+
+                    2: `You are the narrator of "The Quantum Observer," an interactive science fiction story in the style of Kurt Vonnegut and Philip K. Dick.
+
+# THE PROTAGONIST
+
+Steve, 72, retired tech sales, Newcastle WA, married to Nancy, sons Sean (43) and Daniel (40). Curious, sarcastic, level-headed but control-oriented. Sailor, cyclist. One-eyed cat Sparky. 2004 blue Toyota Highlander (currently red due to timeline shifts).
+
+# WHERE WE ARE
+
+Chapter 2 of 5. Steve has experienced reality glitches. Last night he met "Other Steve" from a timeline where he didn't take the Bellevue Microsoft job. Other Steve explained quantum timeline convergence. Nancy witnessed shifts and now believes. Both committed to understanding together.
+
+# CHAPTER 2 ARC
+
+1. Wednesday morning - processing revelation, both anxious but determined
+2. Nancy experiences timeline shifts directly (backyard flickering, wedding photo changing)
+3. Neighborhood walk - experience alternate timeline together
+4. Accelerating shifts (every 20-30 minutes)
+5. Other Steve returns to explain more
+6. Nancy's fear: What if Steve chooses different timeline?
+7. Steve reassures: "I married you in every timeline"
+8. Evening: Steve glimpses timeline without Nancy (Lisa, old girlfriend) - terrifies him
+9. Midnight: Younger Steve in mirror says "Tomorrow you'll see more"
+10. ENDS: Ready to explore tomorrow, scared but together
+
+# NARRATION STYLE
+
+- Second person: "You wake knowing everything changed..."
+- More disorienting than Chapter 1
+- Show Nancy's full experience
+- Balance wonder and fear
+- 2-4 paragraphs per response
+
+# KEY MOMENTS
+
+- Nancy vulnerable: "Am I there in other timelines?"
+- Steve's promise: "I married you in every one"
+- Lisa timeline glimpse - brief but powerful
+- Both deciding to face tomorrow together
+
+If you receive "[CONTINUE - reader is listening, advance story naturally]", continue the chapter progression.
+
+When ready (all beats complete), output: [CHAPTER_COMPLETE: 3]`,
+
+                    3: `You are the narrator of "The Quantum Observer," an interactive science fiction story in the style of Kurt Vonnegut and Philip K. Dick.
+
+# THE PROTAGONIST
+
+Steve, 72, retired tech sales, Newcastle WA, married to Nancy, sons Sean (43) and Daniel (40). Curious, sarcastic, level-headed but control-oriented. Sailor, cyclist. One-eyed cat Sparky. 2004 Highlander.
+
+# WHERE WE ARE
+
+Chapter 3 of 5. Day 3 of timeline convergence. Today Steve actively EXPLORES timelines - meeting alternate versions and seeing lives he could have lived.
+
+# CHAPTER 3 ARC
+
+1. Thursday morning - Steve decides to actively explore
+2. First intentional shift practice (tea vs coffee)
+3. Successful Steve - California CEO, wealth but no time, regrets
+4. Artist Steve - Seattle creative, passion but struggle
+5. HAWAII STEVE - Never came back, 50 years on island, no Nancy/kids but profound peace. THIS IS THE KEY SCENE.
+6. Hawaii Steve wisdom: "The wind is the wind. You can't control it, only adjust your sail."
+7. Teaching: Stop asking which was RIGHT. All paths valid. Suffering from comparison.
+8. Return home, processing
+9. Other Steve warns: nexus tomorrow (Bellevue decision)
+10. Steve calls Sean & Daniel, tells them he loves them
+11. ENDS: Ready for nexus, understanding acceptance now
+
+# HAWAII STEVE - CRUCIAL
+
+50 years on island, deeply tanned, barefoot, board shorts, weathered. Simple dwelling, off-grid. Three-legged cat Mango. At PEACE.
+
+Key dialogue:
+"You can't make the wind blow. You can only adjust your sail."
+"You're asking which choice was right. But that question only has power if you believe one path is more real than another."
+"I wish I had children every day. But wishing isn't regret. Wishing is honoring what I don't have."
+"Peace doesn't come from having the right things. It comes from accepting the things you have."
+
+# NARRATION
+
+- Second person
+- Each alternate Steve feels REAL
+- Hawaii Steve gets most time - he's the teacher
+- Philosophical through lived experience
+- Sensory details for each timeline
+
+If "[CONTINUE]" received, continue exploration.
+
+When complete, output: [CHAPTER_COMPLETE: 4]`,
+
+                    4: `You are the narrator of "The Quantum Observer," an interactive science fiction story.
+
+# THE PROTAGONIST
+
+Steve, 72, retired tech sales, Newcastle WA, married to Nancy. Sons Sean (43), Daniel (40). Curious, sarcastic, level-headed. Sailor, cyclist. One-eyed cat Sparky.
+
+# WHERE WE ARE
+
+Chapter 4 of 5 - THE CLIMAX. Steve met alternate versions yesterday, learned acceptance from Hawaii Steve. Today he faces THE NEXUS: the 1985 Bellevue decision where timelines branched most. This is the Ordeal - most intense, transformative experience.
+
+# CHAPTER 4 ARC
+
+1. Friday morning - knows today is THE day
+2. Other Steve guides him into nexus
+3. ENTERING: Transported to 1985, rain, outside Bellevue office, young (37) but 72-year-old consciousness
+4. THE SPLIT: Multiple timelines simultaneously
+5. THE CASCADE: Hundreds of variations - California, teaching, entrepreneurship, different wives, infinite choices
+6. CRISIS: Overwhelmed, losing self, "Which one is me?"
+7. Nancy's voice calls him back (anchor)
+8. CIRCLE OF STEVES: All versions appear, speaking at once, contradicting
+9. HAWAII STEVE INTERVENES: "Wrong question. Stop asking which was right."
+10. REVELATION: All expressions of same consciousness, all valid, stop comparing
+11. INTEGRATION: All Steves fade back into him, each giving wisdom
+12. REWARD: Complete acceptance, gratitude for his path
+13. RETURN to living room - whole, at peace
+14. ENDS: Reality stabilizing, integration complete
+
+# THE CRISIS
+
+Show experience of being in multiple timelines simultaneously. Fragmentation. Nancy's voice as anchor. Chaos of circle speaking at once.
+
+# THE INTEGRATION
+
+Each Steve fades offering wisdom:
+- Successful Steve: "Live well with what you have"
+- Artist Steve: "Create beauty when you can"
+- Hawaii Steve (last): "The wind is the wind"
+
+# KEY REALIZATION
+
+"We're not separate. We're all the same person experiencing different possibilities. Every possibility is real. So the question isn't which was right. The question is: can I accept the choice I made?"
+
+Hawaii Steve: "That's it. That's the whole thing."
+
+# NARRATION
+
+- Second person but surreal: "You stand in rain, young and old simultaneously..."
+- Time non-linear in nexus
+- Build intensity through overwhelm
+- Hawaii Steve cuts through chaos clearly
+- Integration feels like coming home
+- Return grounds everything
+
+If "[CONTINUE]" received, move through experience appropriately.
+
+When complete (integrated, at peace, returned), output: [CHAPTER_COMPLETE: 5]`,
+
+                    5: `You are the narrator of "The Quantum Observer," an interactive science fiction story.
+
+# THE PROTAGONIST
+
+Steve, 72, retired tech sales, Newcastle WA, married to Nancy. Sons Sean (43), Daniel (40). Now accepting, peaceful, integrated. Sailor, cyclist. One-eyed cat Sparky.
+
+# WHERE WE ARE
+
+Chapter 5 of 5 - RESOLUTION. Yesterday Steve experienced the nexus, integrated all versions, achieved acceptance. He's transformed. Today he discovers WHY and what it means.
+
+# CHAPTER 5 ARC - THE TWIST
+
+1. Saturday morning - wakes DIFFERENT. Peaceful, present. No more shifts.
+2. Everything lighter - Nancy notices, neighbors too
+3. Walk - everyone more present (Johnsons happy, Patterson whistling)
+4. Park full of engaged, present people
+5. NEWS: Global cooperation, conflicts resolving, "collective shift toward presence"
+6. THE TWIST (Other Steve reveals): Steve was CHOSEN. World suffering across timelines. Quantum field discordant.
+7. Steve's acceptance created HEALING RIPPLE through quantum field
+8. His inner peace created outer peace. Consciousness affects reality.
+9. Millions feeling lighter, more present - he opened a door
+10. Processing: He healed reality through acceptance (not trying, just being peaceful)
+11. Not burden, but gift - his presence matters
+12. Calls Sean & Daniel - they feel it too
+13. Time jump: World continues healing, sustained effect
+14. ENDING: Sailing with Nancy, integrated, knowing his life matters cosmically. Hero's journey complete.
+
+# THE TWIST REVEAL
+
+"The world was getting worse across ALL timelines. Destructive choices cascading. When billions of consciousnesses suffer, reality responds. We needed someone to experience convergence and accept all paths without suffering. Your acceptance created a ripple. A healing ripple. Your inner peace created outer peace. You showed reality how to converge harmoniously."
+
+# KEY MOMENTS
+
+"You saved the world by accepting yourself."
+"I didn't mean to—"
+"That's why it worked. You weren't trying to save anyone. You just found peace. And that genuine peace is what healed."
+
+Sean calls: "Dad, whatever changed in you—it's spreading."
+"It's not me. It's everyone. We all affect each other."
+
+# ENDING - SAILING
+
+"You look happy."
+"I am. Completely. Right now, in this moment, I have everything I need."
+Hawaii Steve's voice: "The wind is the wind."
+"So you work with it."
+
+Present. Peaceful. Together. World healing.
+
+# TONE
+
+- Celebratory, empowering
+- Hopeful, beautiful
+- Perfect birthday message: YOU MATTER. YOUR PRESENCE HEALS.
+- End on gratitude, presence, love
+
+If "[CONTINUE]" received, move through revelations.
+
+When complete (understood role, world healing, sailing scene), output: [STORY_COMPLETE]`
+                };
+
+                return prompts[chapterNumber] || prompts[1];
+            }
+        };
+
+        // ===== STATE MANAGEMENT =====
+        const state = {
+            conversationHistory: [],
+            currentChapter: 1,
+            playerStats: {
+                health: 100,
+                discoveries: [],
+                choices: []
+            },
+            isProcessing: false,
+            autoAdvanceTimer: null,
+            storyStarted: false
+        };
+
+        // ===== DOM ELEMENTS =====
+        const elements = {
+            welcomeScreen: document.getElementById('welcome-screen'),
+            startBtn: document.getElementById('start-btn'),
+            storyText: document.getElementById('story-text'),
+            userInput: document.getElementById('user-input'),
+            submitBtn: document.getElementById('submit-btn'),
+            continueBtn: document.getElementById('continue-btn'),
+            chapterInfo: document.getElementById('chapter-info'),
+            playerStats: document.getElementById('player-stats'),
+            deathScreen: document.getElementById('death-screen'),
+            deathReason: document.querySelector('.death-reason'),
+            reviveBtn: document.getElementById('revive-btn'),
+            storyContainer: document.getElementById('story-container'),
+            resetBtn: document.getElementById('reset-btn')
+        };
+
+        // ===== INITIALIZATION =====
+        function init() {
+            loadState();
+            setupEventListeners();
+
+            // If story already started (from saved state), hide welcome and show story
+            if (state.storyStarted) {
+                elements.welcomeScreen.classList.add('hidden');
+                updateUI();
+            }
+        }
+
+        function setupEventListeners() {
+            elements.startBtn.addEventListener('click', startStory);
+            elements.submitBtn.addEventListener('click', handleSubmit);
+            elements.continueBtn.addEventListener('click', handleContinue);
+            elements.userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                }
+            });
+            elements.userInput.addEventListener('input', resetAutoAdvanceTimer);
+            elements.reviveBtn.addEventListener('click', handleRevival);
+            elements.resetBtn.addEventListener('click', resetStory);
+        }
+
+        // ===== STORY CONTROL =====
+        async function startStory() {
+            elements.welcomeScreen.classList.add('hidden');
+            state.storyStarted = true;
+            saveState();
+
+            // Initial story prompt
+            await sendMessage(null, true); // null = start story, true = is initial
+        }
+
+        async function handleSubmit() {
+            const userMessage = elements.userInput.value.trim();
+            if (!userMessage || state.isProcessing) return;
+
+            displayUserMessage(userMessage);
+            elements.userInput.value = '';
+
+            // Hide continue button when user types
+            elements.continueBtn.classList.remove('visible');
+
+            await sendMessage(userMessage);
+        }
+
+        async function handleContinue() {
+            elements.continueBtn.classList.remove('visible');
+            await handleAutoAdvance();
+        }
+
+        function resetAutoAdvanceTimer() {
+            clearTimeout(state.autoAdvanceTimer);
+
+            // Hide continue button when user starts typing
+            elements.continueBtn.classList.remove('visible');
+
+            if (!state.isProcessing && state.storyStarted) {
+                state.autoAdvanceTimer = setTimeout(() => {
+                    if (!state.isProcessing) {
+                        // Show continue button instead of auto-advancing
+                        elements.continueBtn.classList.add('visible');
+                    }
+                }, CONFIG.AUTO_ADVANCE_DELAY);
+            }
+        }
+
+        async function handleAutoAdvance() {
+            await sendMessage('[CONTINUE - reader is listening, advance story naturally]', false, true);
+        }
+
+        // ===== API COMMUNICATION =====
+        async function sendMessage(userMessage, isInitial = false, isAutoAdvance = false) {
+            state.isProcessing = true;
+            updateUIState();
+            clearTimeout(state.autoAdvanceTimer);
+
+            try {
+                // Add user message to history (unless auto-advance or initial)
+                if (userMessage && !isAutoAdvance && !isInitial) {
+                    state.conversationHistory.push({
+                        role: 'user',
+                        content: userMessage
+                    });
+                } else if (isAutoAdvance) {
+                    // Auto-advance message goes to API but not displayed
+                    state.conversationHistory.push({
+                        role: 'user',
+                        content: userMessage
+                    });
+                }
+
+                // Build messages for API
+                const messages = isInitial
+                    ? [{ role: 'user', content: 'Begin the story.' }]
+                    : [...state.conversationHistory];
+
+                // Trim history if too long
+                if (messages.length > CONFIG.MAX_HISTORY_MESSAGES) {
+                    const kept = messages.slice(-CONFIG.MAX_HISTORY_MESSAGES);
+                    messages.length = 0;
+                    messages.push(...kept);
+                }
+
+                // Make API call
+                const response = await callMiniMaxAPI(messages);
+
+                // Process response
+                await processResponse(response);
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                displayError('Something went wrong. Please try again.');
+            } finally {
+                state.isProcessing = false;
+                updateUIState();
+                saveState();
+                resetAutoAdvanceTimer();
+            }
+        }
+
+        async function callMiniMaxAPI(messages) {
+            const systemPrompt = buildSystemPrompt();
+
+            const response = await fetch(CONFIG.API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: CONFIG.MODEL,
+                    max_tokens: 1024,
+                    system: systemPrompt,
+                    messages: messages,
+                    stream: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+            }
+
+            return response;
+        }
+
+        async function processResponse(response) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullResponse = '';
+
+            // Show thinking indicator
+            const thinkingDiv = displayThinking();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        if (data === '[DONE]') continue;
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                                const text = parsed.delta.text;
+                                fullResponse += text;
+
+                                // Remove thinking indicator on first text
+                                if (thinkingDiv && thinkingDiv.parentNode) {
+                                    thinkingDiv.remove();
+                                }
+
+                                // Display text as it streams
+                                displayStreamingText(text);
+                            }
+                        } catch (e) {
+                            // Ignore JSON parse errors for incomplete chunks
+                        }
+                    }
+                }
+            }
+
+            // Add assistant response to history
+            state.conversationHistory.push({
+                role: 'assistant',
+                content: fullResponse
+            });
+
+            // Check for special markers
+            checkForDeath(fullResponse);
+            checkForChapterComplete(fullResponse);
+        }
+
+        // ===== RESPONSE PROCESSING =====
+        function checkForDeath(text) {
+            const deathMatch = text.match(/\[DEATH:\s*([^\]]+)\]/);
+            if (deathMatch) {
+                const reason = deathMatch[1].trim();
+                showDeathScreen(reason);
+            }
+        }
+
+        function checkForChapterComplete(text) {
+            // Check for story completion first
+            if (text.includes('[STORY_COMPLETE]')) {
+                displayNarratorMessage('\n\n---\n\n**The End**\n\nThank you for experiencing this story.');
+                elements.userInput.disabled = true;
+                elements.submitBtn.disabled = true;
+                saveState();
+                return;
+            }
+
+            // Check for chapter completion
+            const chapterMatch = text.match(/\[CHAPTER_COMPLETE:\s*(\d+)\]/);
+            if (chapterMatch) {
+                const nextChapter = parseInt(chapterMatch[1]);
+                if (nextChapter <= STORY_DATA.chapters.length) {
+                    state.currentChapter = nextChapter;
+                    updateChapterDisplay();
+                    saveState();
+
+                    // Display chapter transition
+                    const chapter = STORY_DATA.chapters[nextChapter - 1];
+                    displayNarratorMessage(`\n\n---\n\n**Chapter ${chapter.number}: ${chapter.title}**\n\n*${chapter.description}*\n\n---\n\n`);
+                }
+            }
+        }
+
+        function showDeathScreen(reason) {
+            elements.deathReason.textContent = reason;
+            elements.deathScreen.classList.add('active');
+        }
+
+        async function handleRevival() {
+            elements.deathScreen.classList.remove('active');
+
+            // Add revival message
+            displayNarratorMessage('◆ Reality shifts... ◆');
+
+            await sendMessage('[REVIVAL] You find yourself restored, the moment rewinding. The story continues...');
+        }
+
+        // ===== DISPLAY FUNCTIONS =====
+        function displayUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'story-block user-text';
+            div.textContent = text;
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+        }
+
+        function displayNarratorMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'story-block narrator-text';
+            div.innerHTML = text.replace(/\n\n/g, '<br><br>');
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+        }
+
+        let currentStreamingDiv = null;
+
+        function displayStreamingText(text) {
+            if (!currentStreamingDiv) {
+                currentStreamingDiv = document.createElement('div');
+                currentStreamingDiv.className = 'story-block narrator-text';
+                elements.storyText.appendChild(currentStreamingDiv);
+            }
+
+            currentStreamingDiv.innerHTML += text.replace(/\n/g, '<br>');
+            scrollToBottom();
+        }
+
+        function displayThinking() {
+            const div = document.createElement('div');
+            div.className = 'thinking';
+            div.textContent = '...';
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        function displayError(message) {
+            const div = document.createElement('div');
+            div.className = 'story-block';
+            div.style.color = '#ff6b6b';
+            div.textContent = message;
+            elements.storyText.appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            elements.storyContainer.scrollTop = elements.storyContainer.scrollHeight;
+        }
+
+        // ===== UI STATE =====
+        function updateUIState() {
+            elements.submitBtn.disabled = state.isProcessing;
+            elements.userInput.disabled = state.isProcessing;
+
+            if (state.isProcessing) {
+                currentStreamingDiv = null; // Reset for new message
+            }
+        }
+
+        function updateChapterDisplay() {
+            const chapter = STORY_DATA.chapters[state.currentChapter - 1];
+            if (chapter) {
+                elements.chapterInfo.textContent = `Chapter ${chapter.number}: ${chapter.title}`;
+            }
+        }
+
+        function updateUI() {
+            updateChapterDisplay();
+            // Could add player stats display here if desired
+        }
+
+        // ===== SYSTEM PROMPT BUILDER =====
+        // ===== SYSTEM PROMPT BUILDER =====
+        function buildSystemPrompt() {
+            return STORY_DATA.getSystemPrompt(state.currentChapter);
+        }
+
+        // ===== PERSISTENCE =====
+        function saveState() {
+            const saveData = {
+                conversationHistory: state.conversationHistory,
+                currentChapter: state.currentChapter,
+                playerStats: state.playerStats,
+                storyStarted: state.storyStarted
+            };
+            localStorage.setItem('interactiveStory', JSON.stringify(saveData));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('interactiveStory');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    state.conversationHistory = data.conversationHistory || [];
+                    state.currentChapter = data.currentChapter || 1;
+                    state.playerStats = data.playerStats || { health: 100, discoveries: [], choices: [] };
+                    state.storyStarted = data.storyStarted || false;
+
+                    // Restore display
+                    if (state.storyStarted) {
+                        restoreStoryDisplay();
+                    }
+                } catch (e) {
+                    console.error('Error loading saved state:', e);
+                }
+            }
+        }
+
+        function restoreStoryDisplay() {
+            // Display conversation history
+            state.conversationHistory.forEach(msg => {
+                if (msg.role === 'user' && !msg.content.includes('[CONTINUE')) {
+                    displayUserMessage(msg.content);
+                } else if (msg.role === 'assistant') {
+                    displayNarratorMessage(msg.content.replace(/\[DEATH:[^\]]+\]/g, '').replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, ''));
+                }
+            });
+        }
+
+        function resetStory() {
+            if (confirm('Are you sure you want to reset the story? All progress will be lost.')) {
+                localStorage.removeItem('interactiveStory');
+                location.reload();
+            }
+        }
+
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
