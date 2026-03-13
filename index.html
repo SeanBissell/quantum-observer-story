@@ -1159,21 +1159,16 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             const decoder = new TextDecoder();
             let buffer = '';
             let fullText = '';
-            let displayBuffer = ''; // For live streaming display
+            let streamedParagraphs = [];
+            let currentParagraph = '';
 
             // Remember starting point
             const startingPageCount = state.pages.length;
-
-            // If we're at the end, show first text immediately
             const isAtEnd = state.currentPageIndex >= state.pages.length - 1;
 
-            // Create initial streaming page
-            if (isAtEnd) {
-                state.currentPageIndex = state.pages.length;
-                elements.pageContent.innerHTML = '<div class="page-text streaming"></div>';
-            }
-
-            const streamingElement = isAtEnd ? elements.pageContent.querySelector('.streaming') : null;
+            // Track if we're actively paginating during stream
+            let lastPaginationCheck = 0;
+            const paginationInterval = 500; // Check every 500ms
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -1193,11 +1188,24 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                             if (parsed.type === 'content_block_delta') {
                                 const text = parsed.delta?.text || '';
                                 fullText += text;
-                                displayBuffer += text;
+                                currentParagraph += text;
 
-                                // Update streaming display in real-time
-                                if (streamingElement && isAtEnd) {
-                                    streamingElement.textContent = displayBuffer;
+                                // Detect paragraph breaks
+                                if (text.includes('\n\n')) {
+                                    const parts = currentParagraph.split('\n\n');
+                                    for (let i = 0; i < parts.length - 1; i++) {
+                                        if (parts[i].trim()) {
+                                            streamedParagraphs.push(parts[i].trim());
+                                        }
+                                    }
+                                    currentParagraph = parts[parts.length - 1];
+                                }
+
+                                // Paginate in real-time every 500ms
+                                const now = Date.now();
+                                if (now - lastPaginationCheck > paginationInterval && streamedParagraphs.length > 0) {
+                                    lastPaginationCheck = now;
+                                    paginateStreamedContent(streamedParagraphs, currentParagraph, isAtEnd, startingPageCount);
                                 }
                             }
                         } catch (e) {
@@ -1207,7 +1215,12 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 }
             }
 
-            // Process the complete response
+            // Add remaining paragraph
+            if (currentParagraph.trim()) {
+                streamedParagraphs.push(currentParagraph.trim());
+            }
+
+            // Final pagination with all content
             const cleanedText = fullText
                 .replace(/\[DEATH:[^\]]+\]/g, '')
                 .replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, '')
@@ -1222,6 +1235,51 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             state.conversationHistory.push({
                 role: 'assistant',
                 content: cleanedText
+            });
+
+            // Final pagination with cleaned text
+            state.pendingNarrative = cleanedText;
+            processPendingNarrative();
+
+            // Position user at first new page
+            if (startingPageCount === 0 && state.pages.length > 0) {
+                state.currentPageIndex = 0;
+            } else if (isAtEnd && state.pages.length > startingPageCount) {
+                state.currentPageIndex = startingPageCount;
+            }
+
+            displayCurrentPage();
+            updateUI();
+        }
+
+        // Helper function to paginate content as it streams
+        function paginateStreamedContent(paragraphs, currentParagraph, isAtEnd, startingPageCount) {
+            if (!isAtEnd || paragraphs.length === 0) return;
+
+            // Build content to paginate
+            const contentToPaginate = paragraphs.join('\n\n') + (currentParagraph ? '\n\n' + currentParagraph : '');
+
+            // Temporarily store in pending
+            const oldPending = state.pendingNarrative;
+            state.pendingNarrative = contentToPaginate;
+
+            // Count pages before
+            const pagesBefore = state.pages.length;
+
+            // Paginate available content
+            processPendingNarrative();
+
+            // Restore pending (will be properly set at end)
+            state.pendingNarrative = oldPending;
+
+            // If new pages were created and user is still at end, show first new page
+            if (state.pages.length > pagesBefore && state.currentPageIndex < startingPageCount) {
+                state.currentPageIndex = startingPageCount;
+                displayCurrentPage();
+            }
+
+            updateUI();
+        }
             });
 
             // Add as pending narrative and process into pages
