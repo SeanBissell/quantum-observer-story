@@ -1313,26 +1313,6 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
 
             updateUI();
         }
-            });
-
-            // Add as pending narrative and process into pages
-            state.pendingNarrative = cleanedText;
-
-            // Process narrative into new pages (without changing current page)
-            processPendingNarrative();
-
-            // If this is the very first story content (story just started), go to page 1
-            if (startingPageCount === 0 && state.pages.length > 0) {
-                state.currentPageIndex = 0;
-            } else if (isAtEnd && state.pages.length > startingPageCount) {
-                // If we were showing loading, move to the first new page
-                state.currentPageIndex = startingPageCount;
-            }
-
-            displayCurrentPage();
-            updateUI();
-            saveState();
-        }
 
         function buildSystemPrompt() {
             return STORY_DATA.getSystemPrompt(state.currentChapter);
