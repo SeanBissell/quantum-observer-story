@@ -874,7 +874,6 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             currentChapter: 1,
             storyStarted: false,
             isProcessing: false,
-            pendingNarrative: '',  // Narrative buffer waiting to be paginated
             storyComplete: false
         };
 
@@ -1039,53 +1038,6 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             elements.pageContent.scrollTop = 0;
         }
 
-        function processPendingNarrative() {
-            if (!state.pendingNarrative.trim()) return;
-
-            const paragraphs = state.pendingNarrative.split('\n\n').filter(p => p.trim());
-
-            // Create a temporary div to measure content height
-            const tempDiv = document.createElement('div');
-            tempDiv.style.position = 'absolute';
-            tempDiv.style.visibility = 'hidden';
-            tempDiv.style.width = elements.pageContent.offsetWidth + 'px';
-            tempDiv.style.font = window.getComputedStyle(elements.pageContent).font;
-            document.body.appendChild(tempDiv);
-
-            const maxHeight = elements.pageContent.offsetHeight - 20; // Leave some buffer
-            let currentPage = [];
-
-            for (const paragraph of paragraphs) {
-                // Test if adding this paragraph would exceed the height
-                const testContent = [...currentPage, paragraph]
-                    .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
-                    .join('');
-                tempDiv.innerHTML = testContent;
-
-                if (tempDiv.offsetHeight > maxHeight && currentPage.length > 0) {
-                    // Save current page and start a new one
-                    state.pages.push({
-                        content: currentPage.join('\n\n'),
-                        type: 'narrative'
-                    });
-                    currentPage = [paragraph];
-                } else {
-                    currentPage.push(paragraph);
-                }
-            }
-
-            // Add any remaining content as the last page
-            if (currentPage.length > 0) {
-                state.pages.push({
-                    content: currentPage.join('\n\n'),
-                    type: 'narrative'
-                });
-            }
-
-            document.body.removeChild(tempDiv);
-            state.pendingNarrative = '';
-        }
-
         // ===== API COMMUNICATION =====
         async function sendMessage(userMessage, isInitial = false, isAutoAdvance = false) {
             state.isProcessing = true;
@@ -1159,7 +1111,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             const decoder = new TextDecoder();
             let buffer = '';
             let fullText = '';
-            let displayText = '';
+            let paragraphBuffer = ''; // Accumulate text for current paragraph
 
             // Remember starting point
             const startingPageCount = state.pages.length;
@@ -1171,6 +1123,18 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             }
 
             let hasShownText = false;
+            let streamingContainer = null;
+            let currentPageParagraphs = []; // Track paragraphs on current streaming page
+
+            // Create temp div for measuring height
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.visibility = 'hidden';
+            tempDiv.style.width = elements.pageContent.offsetWidth + 'px';
+            tempDiv.style.font = window.getComputedStyle(elements.pageContent).font;
+            document.body.appendChild(tempDiv);
+
+            const maxHeight = elements.pageContent.offsetHeight - 20;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -1190,24 +1154,73 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                             if (parsed.type === 'content_block_delta') {
                                 const text = parsed.delta?.text || '';
                                 fullText += text;
-                                displayText += text;
+                                paragraphBuffer += text;
 
-                                // Show first text immediately (even just first character)
-                                if (!hasShownText && displayText.trim().length > 0 && isAtEnd) {
+                                // Replace thinking message with streaming container on first text
+                                if (!hasShownText && paragraphBuffer.trim().length > 0 && isAtEnd) {
                                     hasShownText = true;
-                                    elements.pageContent.innerHTML = '<div class="page-text streaming"></div>';
+                                    streamingContainer = document.createElement('div');
+                                    streamingContainer.className = 'streaming-container';
+                                    elements.pageContent.innerHTML = '';
+                                    elements.pageContent.appendChild(streamingContainer);
                                 }
 
-                                // Update live streaming text continuously - update on EVERY chunk
-                                if (hasShownText && isAtEnd) {
-                                    const streamingEl = elements.pageContent.querySelector('.streaming');
-                                    if (streamingEl) {
-                                        // Use textContent for safety and performance
-                                        streamingEl.textContent = displayText;
+                                // Check for paragraph break (double newline)
+                                if (paragraphBuffer.includes('\n\n') && hasShownText) {
+                                    const parts = paragraphBuffer.split('\n\n');
 
-                                        // Keep the streaming cursor visible by scrolling to bottom
-                                        streamingEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                                    // Process all complete paragraphs except the last partial one
+                                    for (let i = 0; i < parts.length - 1; i++) {
+                                        const completeParagraph = parts[i].trim();
+                                        if (completeParagraph) {
+                                            // Test if adding this paragraph exceeds page height
+                                            const testParagraphs = [...currentPageParagraphs, completeParagraph];
+                                            const testContent = testParagraphs
+                                                .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
+                                                .join('');
+                                            tempDiv.innerHTML = testContent;
+
+                                            if (tempDiv.offsetHeight > maxHeight && currentPageParagraphs.length > 0) {
+                                                // Page is full - save current page and start new one
+                                                state.pages.push({
+                                                    content: currentPageParagraphs.join('\n\n'),
+                                                    type: 'narrative'
+                                                });
+                                                currentPageParagraphs = [completeParagraph];
+
+                                                // Clear and rebuild streaming display with new page content
+                                                streamingContainer.innerHTML = '';
+                                            } else {
+                                                // Still fits on current page
+                                                currentPageParagraphs.push(completeParagraph);
+                                            }
+
+                                            // Add formatted paragraph to display
+                                            const paraDiv = document.createElement('div');
+                                            paraDiv.className = 'page-text';
+                                            paraDiv.textContent = completeParagraph;
+                                            streamingContainer.appendChild(paraDiv);
+                                        }
                                     }
+
+                                    // Keep the last partial paragraph in buffer
+                                    paragraphBuffer = parts[parts.length - 1];
+                                }
+
+                                // Update the incomplete paragraph at the end with cursor
+                                if (hasShownText && paragraphBuffer.trim()) {
+                                    // Remove any existing cursor paragraph
+                                    const cursorPara = streamingContainer.querySelector('.streaming');
+                                    if (cursorPara) cursorPara.remove();
+
+                                    // Add current incomplete paragraph with cursor
+                                    const cursorDiv = document.createElement('div');
+                                    cursorDiv.className = 'page-text streaming';
+                                    cursorDiv.textContent = paragraphBuffer;
+                                    streamingContainer.appendChild(cursorDiv);
+
+                                    // Scroll to keep cursor visible
+                                    cursorDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
                                 }
                             }
                         } catch (e) {
@@ -1217,7 +1230,24 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 }
             }
 
-            // Final pagination with all content
+            // Clean up temp div
+            document.body.removeChild(tempDiv);
+
+            // Handle any remaining text in buffer as final paragraph
+            if (paragraphBuffer.trim() && hasShownText) {
+                const finalParagraph = paragraphBuffer.trim();
+                currentPageParagraphs.push(finalParagraph);
+            }
+
+            // Save final page if there's content
+            if (currentPageParagraphs.length > 0) {
+                state.pages.push({
+                    content: currentPageParagraphs.join('\n\n'),
+                    type: 'narrative'
+                });
+            }
+
+            // Clean full text and add to history
             const cleanedText = fullText
                 .replace(/\[DEATH:[^\]]+\]/g, '')
                 .replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, '')
@@ -1225,22 +1255,12 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 .replace(/\[CONTINUE\]/gi, '[CONTINUE - or press the green button to interact or make a correction]')
                 .trim();
 
-            // Check for markers
             checkForChapterComplete(fullText);
 
-            // Add to history
             state.conversationHistory.push({
                 role: 'assistant',
                 content: cleanedText
             });
-
-            // Final pagination with cleaned text - clear streaming pages first
-            if (state.pages.length > startingPageCount) {
-                state.pages.splice(startingPageCount);
-            }
-
-            state.pendingNarrative = cleanedText;
-            processPendingNarrative();
 
             // Position user at first new page
             if (startingPageCount === 0 && state.pages.length > 0) {
