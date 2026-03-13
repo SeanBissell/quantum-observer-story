@@ -115,6 +115,14 @@
             padding: 30px 40px;
             background: #f4f1ea;
             position: relative;
+            min-height: 0;
+        }
+
+        /* Mobile: Less padding */
+        @media (max-width: 768px) {
+            #page-container {
+                padding: 20px 15px;
+            }
         }
 
         #page-content {
@@ -122,6 +130,14 @@
             overflow-y: hidden;
             margin-bottom: 15px;
             color: #1a1a1a;
+            min-height: 0;
+        }
+
+        /* Mobile: Reduce margin to fit buttons */
+        @media (max-width: 768px) {
+            #page-content {
+                margin-bottom: 10px;
+            }
         }
 
         .page-text {
