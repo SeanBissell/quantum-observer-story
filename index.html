@@ -377,6 +377,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
             font-family: 'Georgia', serif;
+            margin-bottom: 20px;
         }
 
         #start-btn:hover {
@@ -1250,7 +1251,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                     .replace(/\[DEATH:[^\]]+\]/g, '')
                     .replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, '')
                     .replace(/\[STORY_COMPLETE\]/g, '')
-                    .replace(/\[CONTINUE\]/gi, '[CONTINUE - or press the green button to interact or make a correction]')
+                    .replace(/\[CONTINUE\]/gi, '[CONTINUE, OR INTERACT]')
                     .trim();
 
                 checkForChapterComplete(fullText);
