@@ -1159,16 +1159,21 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             const decoder = new TextDecoder();
             let buffer = '';
             let fullText = '';
-            let streamedParagraphs = [];
-            let currentParagraph = '';
+            let displayText = '';
 
             // Remember starting point
             const startingPageCount = state.pages.length;
             const isAtEnd = state.currentPageIndex >= state.pages.length - 1;
 
-            // Track if we're actively paginating during stream
+            // Show "thinking" message
+            if (isAtEnd) {
+                elements.pageContent.innerHTML = '<div class="thinking">Creating quantum universe...</div>';
+            }
+
+            // Track when to paginate
             let lastPaginationCheck = 0;
-            const paginationInterval = 500; // Check every 500ms
+            const paginationInterval = 300; // Check every 300ms
+            let hasShownText = false;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -1188,24 +1193,27 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                             if (parsed.type === 'content_block_delta') {
                                 const text = parsed.delta?.text || '';
                                 fullText += text;
-                                currentParagraph += text;
+                                displayText += text;
 
-                                // Detect paragraph breaks
-                                if (text.includes('\n\n')) {
-                                    const parts = currentParagraph.split('\n\n');
-                                    for (let i = 0; i < parts.length - 1; i++) {
-                                        if (parts[i].trim()) {
-                                            streamedParagraphs.push(parts[i].trim());
-                                        }
-                                    }
-                                    currentParagraph = parts[parts.length - 1];
+                                // Show first text immediately
+                                if (!hasShownText && displayText.trim() && isAtEnd) {
+                                    hasShownText = true;
+                                    elements.pageContent.innerHTML = '<div class="page-text streaming"></div>';
                                 }
 
-                                // Paginate in real-time every 500ms
+                                // Update live streaming text
+                                if (hasShownText && isAtEnd) {
+                                    const streamingEl = elements.pageContent.querySelector('.streaming');
+                                    if (streamingEl) {
+                                        streamingEl.textContent = displayText;
+                                    }
+                                }
+
+                                // Paginate in real-time periodically
                                 const now = Date.now();
-                                if (now - lastPaginationCheck > paginationInterval && streamedParagraphs.length > 0) {
+                                if (now - lastPaginationCheck > paginationInterval && displayText.length > 200) {
                                     lastPaginationCheck = now;
-                                    paginateStreamedContent(streamedParagraphs, currentParagraph, isAtEnd, startingPageCount);
+                                    paginateStreamedContentLive(displayText, isAtEnd, startingPageCount);
                                 }
                             }
                         } catch (e) {
@@ -1213,11 +1221,6 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                         }
                     }
                 }
-            }
-
-            // Add remaining paragraph
-            if (currentParagraph.trim()) {
-                streamedParagraphs.push(currentParagraph.trim());
             }
 
             // Final pagination with all content
@@ -1252,17 +1255,15 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             updateUI();
         }
 
-        // Helper function to paginate content as it streams
-        function paginateStreamedContent(paragraphs, currentParagraph, isAtEnd, startingPageCount) {
-            if (!isAtEnd || paragraphs.length === 0) return;
+        // Live streaming pagination helper
+        function paginateStreamedContentLive(displayText, isAtEnd, startingPageCount) {
+            if (!isAtEnd) return;
 
-            // Build content to paginate
-            const contentToPaginate = paragraphs.join('\n\n') + (currentParagraph ? '\n\n' + currentParagraph : '');
+            // Build content to paginate from display text
+            const paragraphs = displayText.split('\n\n').filter(p => p.trim());
+            if (paragraphs.length === 0) return;
 
-            // Count pages before
-            const pagesBefore = state.pages.length;
-
-            // Create pages from streamed content without clearing existing pages
+            // Create temporary measure element
             const tempDiv = document.createElement('div');
             tempDiv.style.position = 'absolute';
             tempDiv.style.visibility = 'hidden';
@@ -1271,15 +1272,15 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             document.body.appendChild(tempDiv);
 
             const maxHeight = elements.pageContent.offsetHeight - 20;
-            const allParagraphs = contentToPaginate.split('\n\n').filter(p => p.trim());
             let currentPage = [];
 
-            // Remove existing streamed pages (we'll recreate them)
+            // Remove previously generated streaming pages
             if (state.pages.length > startingPageCount) {
                 state.pages.splice(startingPageCount);
             }
 
-            for (const paragraph of allParagraphs) {
+            // Create pages
+            for (const paragraph of paragraphs) {
                 const testContent = [...currentPage, paragraph]
                     .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
                     .join('');
@@ -1296,6 +1297,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 }
             }
 
+            // Add remaining as in-progress page
             if (currentPage.length > 0) {
                 state.pages.push({
                     content: currentPage.join('\n\n'),
@@ -1305,8 +1307,8 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
 
             document.body.removeChild(tempDiv);
 
-            // If new pages were created and user hasn't moved, show first new page
-            if (state.pages.length > pagesBefore && state.currentPageIndex < startingPageCount) {
+            // Show first new page if user hasn't navigated away
+            if (state.currentPageIndex < startingPageCount && state.pages.length > startingPageCount) {
                 state.currentPageIndex = startingPageCount;
                 displayCurrentPage();
             }
