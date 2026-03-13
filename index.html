@@ -1075,8 +1075,10 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 await processResponse(response);
 
             } catch (error) {
-                console.error('Error:', error);
-                addPage('An error occurred. Please try again.', 'narrative');
+                console.error('Error details:', error);
+                console.error('Error stack:', error.stack);
+                console.error('Error message:', error.message);
+                addPage(`An error occurred: ${error.message}. Please try again.`, 'narrative');
             } finally {
                 state.isProcessing = false;
                 // Don't need to hide loading indicator anymore
@@ -1107,165 +1109,171 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
         }
 
         async function processResponse(response) {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-            let fullText = '';
-            let paragraphBuffer = ''; // Accumulate text for current paragraph
+            try {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullText = '';
+                let paragraphBuffer = ''; // Accumulate text for current paragraph
 
-            // Remember starting point
-            const startingPageCount = state.pages.length;
-            const isAtEnd = state.currentPageIndex >= state.pages.length - 1;
+                // Remember starting point
+                const startingPageCount = state.pages.length;
+                const isAtEnd = state.currentPageIndex >= state.pages.length - 1;
 
-            // Show "thinking" message
-            if (isAtEnd) {
-                elements.pageContent.innerHTML = '<div class="thinking">Creating quantum universe...</div>';
-            }
+                // Show "thinking" message
+                if (isAtEnd) {
+                    elements.pageContent.innerHTML = '<div class="thinking">Creating quantum universe...</div>';
+                }
 
-            let hasShownText = false;
-            let currentPageParagraphs = []; // Track paragraphs on current streaming page
-            let displayPageParagraphs = []; // The first page we're showing to the user
+                let hasShownText = false;
+                let currentPageParagraphs = []; // Track paragraphs on current streaming page
+                let displayPageParagraphs = []; // The first page we're showing to the user
 
-            // Create temp div for measuring height
-            const tempDiv = document.createElement('div');
-            tempDiv.style.position = 'absolute';
-            tempDiv.style.visibility = 'hidden';
-            tempDiv.style.width = elements.pageContent.offsetWidth + 'px';
-            tempDiv.style.font = window.getComputedStyle(elements.pageContent).font;
-            document.body.appendChild(tempDiv);
+                // Create temp div for measuring height
+                const tempDiv = document.createElement('div');
+                tempDiv.style.position = 'absolute';
+                tempDiv.style.visibility = 'hidden';
+                tempDiv.style.width = elements.pageContent.offsetWidth + 'px';
+                tempDiv.style.font = window.getComputedStyle(elements.pageContent).font;
+                document.body.appendChild(tempDiv);
 
-            const maxHeight = elements.pageContent.offsetHeight - 20;
+                const maxHeight = elements.pageContent.offsetHeight - 20;
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
-                        if (data === '[DONE]') continue;
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') continue;
 
-                        try {
-                            const parsed = JSON.parse(data);
-                            if (parsed.type === 'content_block_delta') {
-                                const text = parsed.delta?.text || '';
-                                fullText += text;
-                                paragraphBuffer += text;
+                            try {
+                                const parsed = JSON.parse(data);
+                                if (parsed.type === 'content_block_delta') {
+                                    const text = parsed.delta?.text || '';
+                                    fullText += text;
+                                    paragraphBuffer += text;
 
-                                // Replace thinking message with streaming display on first text
-                                if (!hasShownText && paragraphBuffer.trim().length > 0 && isAtEnd) {
-                                    hasShownText = true;
-                                    elements.pageContent.innerHTML = '';
-                                }
-
-                                // Check for paragraph break (double newline)
-                                if (paragraphBuffer.includes('\n\n') && hasShownText) {
-                                    const parts = paragraphBuffer.split('\n\n');
-
-                                    // Process all complete paragraphs except the last partial one
-                                    for (let i = 0; i < parts.length - 1; i++) {
-                                        const completeParagraph = parts[i].trim();
-                                        if (completeParagraph) {
-                                            // Test if adding this paragraph exceeds page height
-                                            const testParagraphs = [...currentPageParagraphs, completeParagraph];
-                                            const testContent = testParagraphs
-                                                .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
-                                                .join('');
-                                            tempDiv.innerHTML = testContent;
-
-                                            if (tempDiv.offsetHeight > maxHeight && currentPageParagraphs.length > 0) {
-                                                // Page is full - save it and start new page
-                                                state.pages.push({
-                                                    content: currentPageParagraphs.join('\n\n'),
-                                                    type: 'narrative'
-                                                });
-
-                                                // Lock the display to the first page content
-                                                if (displayPageParagraphs.length === 0) {
-                                                    displayPageParagraphs = [...currentPageParagraphs];
-                                                }
-
-                                                currentPageParagraphs = [completeParagraph];
-                                            } else {
-                                                // Still fits on current page
-                                                currentPageParagraphs.push(completeParagraph);
-                                            }
-                                        }
+                                    // Replace thinking message with streaming display on first text
+                                    if (!hasShownText && paragraphBuffer.trim().length > 0 && isAtEnd) {
+                                        hasShownText = true;
+                                        elements.pageContent.innerHTML = '';
                                     }
 
-                                    // Keep the last partial paragraph in buffer
-                                    paragraphBuffer = parts[parts.length - 1];
+                                    // Check for paragraph break (double newline)
+                                    if (paragraphBuffer.includes('\n\n') && hasShownText) {
+                                        const parts = paragraphBuffer.split('\n\n');
+
+                                        // Process all complete paragraphs except the last partial one
+                                        for (let i = 0; i < parts.length - 1; i++) {
+                                            const completeParagraph = parts[i].trim();
+                                            if (completeParagraph) {
+                                                // Test if adding this paragraph exceeds page height
+                                                const testParagraphs = [...currentPageParagraphs, completeParagraph];
+                                                const testContent = testParagraphs
+                                                    .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
+                                                    .join('');
+                                                tempDiv.innerHTML = testContent;
+
+                                                if (tempDiv.offsetHeight > maxHeight && currentPageParagraphs.length > 0) {
+                                                    // Page is full - save it and start new page
+                                                    state.pages.push({
+                                                        content: currentPageParagraphs.join('\n\n'),
+                                                        type: 'narrative'
+                                                    });
+
+                                                    // Lock the display to the first page content
+                                                    if (displayPageParagraphs.length === 0) {
+                                                        displayPageParagraphs = [...currentPageParagraphs];
+                                                    }
+
+                                                    currentPageParagraphs = [completeParagraph];
+                                                } else {
+                                                    // Still fits on current page
+                                                    currentPageParagraphs.push(completeParagraph);
+                                                }
+                                            }
+                                        }
+
+                                        // Keep the last partial paragraph in buffer
+                                        paragraphBuffer = parts[parts.length - 1];
+                                    }
+
+                                    // Display: if we've locked to first page, show that, otherwise show current content
+                                    if (hasShownText && isAtEnd) {
+                                        const displayParagraphs = displayPageParagraphs.length > 0
+                                            ? displayPageParagraphs
+                                            : currentPageParagraphs;
+
+                                        const displayHTML = displayParagraphs
+                                            .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
+                                            .join('') +
+                                            (displayPageParagraphs.length === 0 && paragraphBuffer.trim() ?
+                                                `<div class="page-text streaming">${escapeHtml(paragraphBuffer)}</div>` :
+                                                '');
+
+                                        elements.pageContent.innerHTML = displayHTML;
+                                        elements.pageContent.scrollTop = 0;
+                                    }
                                 }
-
-                                // Display: if we've locked to first page, show that, otherwise show current content
-                                if (hasShownText && isAtEnd) {
-                                    const displayParagraphs = displayPageParagraphs.length > 0
-                                        ? displayPageParagraphs
-                                        : currentPageParagraphs;
-
-                                    const displayHTML = displayParagraphs
-                                        .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
-                                        .join('') +
-                                        (displayPageParagraphs.length === 0 && paragraphBuffer.trim() ?
-                                            `<div class="page-text streaming">${escapeHtml(paragraphBuffer)}</div>` :
-                                            '');
-
-                                    elements.pageContent.innerHTML = displayHTML;
-                                    elements.pageContent.scrollTop = 0;
-                                }
+                            } catch (e) {
+                                console.error('JSON parse error:', e);
                             }
-                        } catch (e) {
-                            // Skip invalid JSON
                         }
                     }
                 }
-            }
 
-            // Clean up temp div
-            document.body.removeChild(tempDiv);
+                // Clean up temp div
+                document.body.removeChild(tempDiv);
 
-            // Handle any remaining text in buffer as final paragraph
-            if (paragraphBuffer.trim() && hasShownText) {
-                const finalParagraph = paragraphBuffer.trim();
-                currentPageParagraphs.push(finalParagraph);
-            }
+                // Handle any remaining text in buffer as final paragraph
+                if (paragraphBuffer.trim() && hasShownText) {
+                    const finalParagraph = paragraphBuffer.trim();
+                    currentPageParagraphs.push(finalParagraph);
+                }
 
-            // Save final page if there's content
-            if (currentPageParagraphs.length > 0) {
-                state.pages.push({
-                    content: currentPageParagraphs.join('\n\n'),
-                    type: 'narrative'
+                // Save final page if there's content
+                if (currentPageParagraphs.length > 0) {
+                    state.pages.push({
+                        content: currentPageParagraphs.join('\n\n'),
+                        type: 'narrative'
+                    });
+                }
+
+                // Clean full text and add to history
+                const cleanedText = fullText
+                    .replace(/\[DEATH:[^\]]+\]/g, '')
+                    .replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, '')
+                    .replace(/\[STORY_COMPLETE\]/g, '')
+                    .replace(/\[CONTINUE\]/gi, '[CONTINUE - or press the green button to interact or make a correction]')
+                    .trim();
+
+                checkForChapterComplete(fullText);
+
+                state.conversationHistory.push({
+                    role: 'assistant',
+                    content: cleanedText
                 });
+
+                // Position user at first new page
+                if (startingPageCount === 0 && state.pages.length > 0) {
+                    state.currentPageIndex = 0;
+                } else if (isAtEnd && state.pages.length > startingPageCount) {
+                    state.currentPageIndex = startingPageCount;
+                }
+
+                displayCurrentPage();
+                updateUI();
+            } catch (error) {
+                console.error('processResponse error:', error);
+                console.error('Stack:', error.stack);
+                throw error; // Re-throw to be caught by sendMessage
             }
-
-            // Clean full text and add to history
-            const cleanedText = fullText
-                .replace(/\[DEATH:[^\]]+\]/g, '')
-                .replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, '')
-                .replace(/\[STORY_COMPLETE\]/g, '')
-                .replace(/\[CONTINUE\]/gi, '[CONTINUE - or press the green button to interact or make a correction]')
-                .trim();
-
-            checkForChapterComplete(fullText);
-
-            state.conversationHistory.push({
-                role: 'assistant',
-                content: cleanedText
-            });
-
-            // Position user at first new page
-            if (startingPageCount === 0 && state.pages.length > 0) {
-                state.currentPageIndex = 0;
-            } else if (isAtEnd && state.pages.length > startingPageCount) {
-                state.currentPageIndex = startingPageCount;
-            }
-
-            displayCurrentPage();
-            updateUI();
         }
 
         function buildSystemPrompt() {
