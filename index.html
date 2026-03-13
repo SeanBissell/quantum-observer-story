@@ -1182,9 +1182,12 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                                 tempDiv.innerHTML = testContent;
 
                                                 if (tempDiv.offsetHeight > maxHeight && currentPageParagraphs.length > 0) {
-                                                    // Page is full - save it and start new page
+                                                    // Page is full - save it with cleaned content
+                                                    const pageContent = currentPageParagraphs.join('\n\n')
+                                                        .replace(/\[CONTINUE\]/gi, '[CONTINUE OR INTERACT]');
+
                                                     state.pages.push({
-                                                        content: currentPageParagraphs.join('\n\n'),
+                                                        content: pageContent,
                                                         type: 'narrative'
                                                     });
 
@@ -1232,27 +1235,31 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 // Clean up temp div
                 document.body.removeChild(tempDiv);
 
-                // Handle any remaining text in buffer as final paragraph
-                if (paragraphBuffer.trim() && hasShownText) {
-                    const finalParagraph = paragraphBuffer.trim();
-                    currentPageParagraphs.push(finalParagraph);
-                }
-
-                // Save final page if there's content
-                if (currentPageParagraphs.length > 0) {
-                    state.pages.push({
-                        content: currentPageParagraphs.join('\n\n'),
-                        type: 'narrative'
-                    });
-                }
-
-                // Clean full text and add to history
+                // Clean full text BEFORE creating pages
                 const cleanedText = fullText
                     .replace(/\[DEATH:[^\]]+\]/g, '')
                     .replace(/\[CHAPTER_COMPLETE:\s*\d+\]/g, '')
                     .replace(/\[STORY_COMPLETE\]/g, '')
                     .replace(/\[CONTINUE\]/gi, '[CONTINUE OR INTERACT]')
                     .trim();
+
+                // Handle any remaining text in buffer as final paragraph
+                if (paragraphBuffer.trim() && hasShownText) {
+                    const finalParagraph = paragraphBuffer.trim();
+                    currentPageParagraphs.push(finalParagraph);
+                }
+
+                // Apply cleaning to current page paragraphs
+                const cleanedPageContent = currentPageParagraphs.join('\n\n')
+                    .replace(/\[CONTINUE\]/gi, '[CONTINUE OR INTERACT]');
+
+                // Save final page if there's content
+                if (currentPageParagraphs.length > 0) {
+                    state.pages.push({
+                        content: cleanedPageContent,
+                        type: 'narrative'
+                    });
+                }
 
                 checkForChapterComplete(fullText);
 
