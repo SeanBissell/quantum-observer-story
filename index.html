@@ -1123,7 +1123,6 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
             }
 
             let hasShownText = false;
-            let streamingContainer = null;
             let currentPageParagraphs = []; // Track paragraphs on current streaming page
 
             // Create temp div for measuring height
@@ -1156,13 +1155,10 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                 fullText += text;
                                 paragraphBuffer += text;
 
-                                // Replace thinking message with streaming container on first text
+                                // Replace thinking message with streaming display on first text
                                 if (!hasShownText && paragraphBuffer.trim().length > 0 && isAtEnd) {
                                     hasShownText = true;
-                                    streamingContainer = document.createElement('div');
-                                    streamingContainer.className = 'streaming-container';
                                     elements.pageContent.innerHTML = '';
-                                    elements.pageContent.appendChild(streamingContainer);
                                 }
 
                                 // Check for paragraph break (double newline)
@@ -1187,19 +1183,10 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                                     type: 'narrative'
                                                 });
                                                 currentPageParagraphs = [completeParagraph];
-
-                                                // Clear and rebuild streaming display with new page content
-                                                streamingContainer.innerHTML = '';
                                             } else {
                                                 // Still fits on current page
                                                 currentPageParagraphs.push(completeParagraph);
                                             }
-
-                                            // Add formatted paragraph to display
-                                            const paraDiv = document.createElement('div');
-                                            paraDiv.className = 'page-text';
-                                            paraDiv.textContent = completeParagraph;
-                                            streamingContainer.appendChild(paraDiv);
                                         }
                                     }
 
@@ -1207,20 +1194,18 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                     paragraphBuffer = parts[parts.length - 1];
                                 }
 
-                                // Update the incomplete paragraph at the end with cursor
-                                if (hasShownText && paragraphBuffer.trim()) {
-                                    // Remove any existing cursor paragraph
-                                    const cursorPara = streamingContainer.querySelector('.streaming');
-                                    if (cursorPara) cursorPara.remove();
+                                // Display current page content with streaming cursor
+                                if (hasShownText && isAtEnd) {
+                                    // Build display with complete paragraphs + streaming cursor
+                                    const displayHTML = currentPageParagraphs
+                                        .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
+                                        .join('') +
+                                        (paragraphBuffer.trim() ?
+                                            `<div class="page-text streaming">${escapeHtml(paragraphBuffer)}</div>` :
+                                            '');
 
-                                    // Add current incomplete paragraph with cursor
-                                    const cursorDiv = document.createElement('div');
-                                    cursorDiv.className = 'page-text streaming';
-                                    cursorDiv.textContent = paragraphBuffer;
-                                    streamingContainer.appendChild(cursorDiv);
-
-                                    // Scroll to keep cursor visible
-                                    cursorDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                                    elements.pageContent.innerHTML = displayHTML;
+                                    elements.pageContent.scrollTop = 0; // Keep at top of page
                                 }
                             }
                         } catch (e) {
