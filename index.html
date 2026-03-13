@@ -397,14 +397,6 @@
             50% { opacity: 1; }
         }
 
-        .streaming-indicator {
-            color: #666;
-            font-style: italic;
-            text-align: center;
-            padding: 15px;
-            margin-top: 10px;
-        }
-
         /* Loading Indicator */
         #loading-indicator {
             position: fixed;
@@ -1222,20 +1214,20 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                             ? displayPageParagraphs
                                             : currentPageParagraphs;
 
+                                        // During streaming, only show complete paragraphs (not the buffer)
+                                        // This avoids the flashing "danger zone" at the bottom of the active page
                                         const displayHTML = displayParagraphs
                                             .map(p => `<div class="page-text">${escapeHtml(p)}</div>`)
-                                            .join('') +
-                                            (displayPageParagraphs.length === 0 && paragraphBuffer.trim() ?
-                                                `<div class="page-text streaming">${escapeHtml(paragraphBuffer)}</div>` :
-                                                (displayPageParagraphs.length > 0 ?
-                                                    '<div class="streaming-indicator">More content generating...</div>' :
-                                                    ''));
+                                            .join('');
 
                                         // Update page count in real-time during streaming
                                         const buildingPageCount = Math.max(state.pages.length, 1);
                                         elements.pageInfo.textContent = `Page 1 of ${buildingPageCount}`;
 
-                                        elements.pageContent.innerHTML = displayHTML;
+                                        // Only update display while on the active streaming page, stop once it locks
+                                        if (displayPageParagraphs.length === 0) {
+                                            elements.pageContent.innerHTML = displayHTML;
+                                        }
                                         elements.pageContent.scrollTop = 0;
                                     }
                                 }
