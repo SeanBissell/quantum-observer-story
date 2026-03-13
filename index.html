@@ -352,6 +352,7 @@
         .welcome-text-area {
             flex: 1;
             padding: 30px;
+            padding-bottom: 60px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -1119,17 +1120,19 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
 
                 // Remember starting point
                 const startingPageCount = state.pages.length;
-                const isAtEnd = state.currentPageIndex >= state.pages.length - 1;
+                const wasAtEnd = state.currentPageIndex >= state.pages.length - 1;
 
                 // If continuing from an existing page with content, create a new page first
                 // This prevents new content from disturbing existing page content
-                if (startingPageCount > 0 && isAtEnd) {
+                if (startingPageCount > 0 && wasAtEnd) {
                     state.currentPageIndex = startingPageCount; // Move to the new (not yet created) page index
                 }
 
-                // Show "thinking" message
-                if (isAtEnd) {
+                // Show "thinking" message immediately and update page info
+                // This gives immediate feedback that something is happening
+                if (wasAtEnd) {
                     elements.pageContent.innerHTML = '<div class="thinking">Creating quantum universe...</div>';
+                    elements.pageInfo.textContent = `Page ${startingPageCount + 1} of ${startingPageCount + 1}`;
                 }
 
                 let hasShownText = false;
@@ -1167,7 +1170,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                     paragraphBuffer += text;
 
                                     // Replace thinking message with streaming display on first text
-                                    if (!hasShownText && paragraphBuffer.trim().length > 0 && isAtEnd) {
+                                    if (!hasShownText && paragraphBuffer.trim().length > 0 && wasAtEnd) {
                                         hasShownText = true;
                                         elements.pageContent.innerHTML = '';
                                     }
@@ -1215,7 +1218,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                                     }
 
                                     // Display: if we've locked to first page, show that, otherwise show current content
-                                    if (hasShownText && isAtEnd) {
+                                    if (hasShownText && wasAtEnd) {
                                         const displayParagraphs = displayPageParagraphs.length > 0
                                             ? displayPageParagraphs
                                             : currentPageParagraphs;
@@ -1284,7 +1287,7 @@ This is a 72nd birthday gift. The message is: YOUR LIFE MATTERS. YOUR PRESENCE H
                 // Position user at first new page
                 if (startingPageCount === 0 && state.pages.length > 0) {
                     state.currentPageIndex = 0;
-                } else if (isAtEnd && state.pages.length > startingPageCount) {
+                } else if (wasAtEnd && state.pages.length > startingPageCount) {
                     state.currentPageIndex = startingPageCount;
                 }
 
